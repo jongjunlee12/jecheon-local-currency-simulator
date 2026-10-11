@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="description" content="이웃 시군 주민에게 제천 지역화폐를 발급하면 제천 상권에 돈이 얼마나 돌아오는지 계산하는 공공데이터 기반 시뮬레이터">
+<meta name="description" content="이미 제천에서 소비하는 이웃 주민에게 제천 지역화폐를 발급해 제천 상권을 살리는 정책 시뮬레이터">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>제천 지역화폐 광역발급 시뮬레이터</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
@@ -12,6 +12,7 @@
 <script src="buildings.js?v=2" defer></script>
 <script src="tops.js?v=1"></script>
 <script src="regionspend.js?v=1"></script>
+<script src="comp.js?v=1"></script>
 <style>
 /* 시내 TOP5 패널 (지도 위) */
 #topsPanel{position:absolute;top:12px;right:12px;z-index:5;width:340px;max-height:calc(100% - 24px);overflow:auto;background:rgba(255,255,255,.96);border:1px solid var(--hairline);border-radius:16px;box-shadow:rgba(5,0,56,.12) 0 8px 24px;padding:16px;opacity:0;transform:translateY(-8px);pointer-events:none;transition:opacity 220ms var(--ease),transform 220ms var(--ease)}
@@ -42,6 +43,27 @@
 .rs-tab tr.hf td{color:var(--stone)}.rs-tab .cat{font-size:13px;color:var(--steel)}
 .rs-note{font-size:14px;color:var(--steel);margin-top:10px}
 @media (max-width:1023px){.rs-grid{grid-template-columns:1fr}#topsPanel{width:260px}}
+/* 동반매장 네트워크 */
+body.net-on .lm-reg,body.net-on .lm-amt,body.net-on .lm-top,body.net-on .lm-jc,body.net-on .lm-dong,body.net-on #topsPanel{display:none!important}
+.lm-top{pointer-events:auto;cursor:pointer}
+.lm-net{font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;padding:4px 10px 4px 4px}
+.lm-net i{font-style:normal;width:20px;height:20px;border-radius:50%;background:#4262FF;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px}
+.lm-net small{font-weight:500;color:var(--steel)}
+.lm-src{font-size:15px;font-weight:700;background:var(--yellow);border:0;padding:6px 14px}
+#netClose{position:absolute;left:52px;top:12px;z-index:6;display:none;height:40px;padding:0 18px;border-radius:9999px;border:0;background:var(--ink);color:#fff;font:inherit;font-size:14px;font-weight:600;cursor:pointer;box-shadow:rgba(5,0,56,.2) 0 4px 12px;transition:transform 160ms var(--ease)}
+#netClose:active{transform:scale(.97)} body.net-on #netClose{display:block}
+#netHint{position:absolute;left:52px;bottom:14px;z-index:5;background:rgba(255,255,255,.94);border:1px solid var(--hairline);border-radius:9999px;padding:6px 14px;font-size:13px;color:var(--slate);display:none}
+#netHint.show{display:block} body.net-on #netHint{display:none}
+.tp-tab tr{cursor:pointer} .tp-tab tr:hover td{background:var(--surface)}
+.eyebrow{display:inline-block;font-size:14px;font-weight:600;background:var(--yellow-light);color:#6B5A00;border-radius:9999px;padding:6px 14px;margin-bottom:18px}
+.sub b{color:var(--ink);background:linear-gradient(transparent 60%,var(--yellow) 60%)}
+#why{padding-top:24px}
+.why-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:28px}
+.why{border-radius:28px;padding:32px}
+.why h3{margin:14px 0 8px;font-size:22px;font-weight:600}.why p{margin:0;font-size:17px;line-height:1.6;color:var(--slate)}
+.why-n{font-size:52px;font-weight:600;letter-spacing:-1.2px;line-height:1.05}.why-n small{font-size:22px;letter-spacing:0;font-weight:500}
+.why-y{background:var(--yellow)}.why-y p{color:#4b4300}.why-c{background:var(--coral-light)}.why-c .why-n{color:var(--coral-dark)}.why-t{background:var(--teal-light)}.why-t .why-n{color:var(--moss)}
+@media (max-width:1023px){.why-grid{grid-template-columns:1fr}}
 </style>
 <style>
 :root{
@@ -196,20 +218,30 @@ html.rm .rv{transform:none;transition-duration:220ms}html.rm #map{transition-dur
 
 <header class="hero"><div class="wrap grid">
   <div>
-    <h1>영월·단양·정선 주민에게 제천 지역화폐를 주면 <em>얼마나 돌아올까</em></h1>
-    <p class="sub">제천 상권에 들어오는 바깥 돈의 6할이 강원 남부에서 옵니다. 그 손님들을 준시민으로 모셨을 때의 효과를 숫자로 보여드립니다.</p>
+    <div class="eyebrow">제천 상권 활성화 제안</div>
+    <h1>이미 제천에서 장 보는 이웃, 이제 <em>제천 지역화폐로</em> 한 번 더 모십니다</h1>
+    <p class="sub">영월·단양·정선·원주 주민은 작년 한 해에만 제천에서 <b id="subY25">528억 원</b>을 썼습니다. 이들이 제천 지역화폐를 사서 쓰면, 그 돈이 더 자주 제천 골목 가게로 돌아옵니다.</p>
     <div class="cta-row"><a class="btn btn-city btn-lg" href="#map-sec" data-city>제천 시내 매출순위 보기</a><a class="btn btn-secondary" href="#sim">시뮬레이터 열기</a></div>
   </div>
   <div class="stat-card">
     <div class="big" id="heroBig">0<small>억 원</small></div>
-    <p>영월·단양·정선·태백 주민이 제천에서 쓴 돈<br><span style="font-size:15px;color:#4b4300">2025년 1월부터 2026년 8월까지 19개월 (2025년 11월 제외)</span></p>
-    <div class="row"><div><b id="heroIn">0억</b><span>바깥에서 들어온 돈</span></div><div><b id="heroOut">0억</b><span>제천시민이 바깥에 쓴 돈</span></div><div><b id="heroNet">+0억</b><span>제천에 남은 돈</span></div></div>
+    <p>영월·단양·정선·원주 주민이 제천에서 쓴 돈<br><span style="font-size:15px;color:#4b4300">2025년 1월부터 2026년 8월까지 19개월 (2025년 11월 제외)</span></p>
+    <div class="row"><div><b id="heroY25">0억</b><span>작년(2025)</span></div><div><b id="heroY26">0억</b><span>올해 1~8월</span></div><div><b id="heroUp">-</b><span>올해 8개월 만에</span></div></div>
   </div>
 </div></header>
 
+<section id="why"><div class="wrap">
+  <h2>왜 이웃 주민에게 제천 지역화폐인가</h2>
+  <div class="why-grid">
+    <div class="why why-y"><div class="why-n" id="w1n">-</div><h3>이미 제천에 오고 있습니다</h3><p id="w1p">새 손님을 부르는 정책이 아닙니다. 이미 제천에서 돈을 쓰는 이웃이 대상입니다.</p></div>
+    <div class="why why-c"><div class="why-n" id="w2n">-</div><h3>그런데 쓰는 곳이 몇 군데뿐입니다</h3><p id="w2p">이웃 주민의 제천 소비는 마트·주유소·병원에 몰려 있습니다.</p></div>
+    <div class="why why-t"><div class="why-n" id="w3n">-</div><h3>지역화폐가 골목까지 잇습니다</h3><p id="w3p">제천에서만 쓰는 화폐와 캐시백이 이웃을 더 자주, 더 넓게 제천에서 쓰게 만듭니다.</p></div>
+  </div>
+</div></section>
+
 <section id="map-sec"><div class="wrap">
   <h2>제천으로 돈이 어디서 오나</h2>
-  <p class="lead">선이 굵을수록 돈이 많이 오는 곳입니다. 지도를 가까이 당기면 제천 시내 건물이 용도별 색으로 나타납니다. 동네를 누르면 그 동네에 누가 돈을 쓰는지 나옵니다.</p>
+  <p class="lead">제천은 강원 남부 주민이 장 보러 오는 중심 도시입니다. 선이 굵을수록 제천에 돈을 많이 쓰는 곳이고, 이 주민들이 지역화폐 광역발급의 첫 대상입니다. 지도를 당기면 시내 가게와 매출 순위가 나옵니다.</p>
   <div class="ctrl">
     <div class="toggle"><button class="on" data-dir="in">들어오는 돈</button><button data-dir="out">나가는 돈</button></div>
     <div style="flex:1;min-width:260px;display:flex;align-items:center;gap:14px"><span class="month" id="mLabel">전체 기간</span><input type="range" id="mRange" min="0" max="20" value="0"></div>
@@ -230,7 +262,7 @@ html.rm .rv{transform:none;transition-duration:220ms}html.rm #map{transition-dur
 
 <section id="nb"><div class="wrap">
   <h2>이웃 주민은 제천 어디에 돈을 쓰나</h2>
-  <p class="lead">지역을 고르면 그 주민들이 제천에서 어떤 업종에 돈을 썼는지 표로 보여줍니다. 손잡이로 달을 고르면 그달 기준으로 바뀝니다.</p>
+  <p class="lead">지역화폐를 받을 이웃이 지금 제천 어디에 돈을 쓰는지 보여줍니다. 마트·주유소·병원에 몰린 소비를 식당·카페·골목 가게로 넓히는 것이 이 정책의 목표입니다. 지역과 달을 골라 보세요.</p>
   <div class="ctrl">
     <div class="toggle" id="rsTabs"></div>
     <div style="flex:1;min-width:260px;display:flex;align-items:center;gap:14px"><span class="month" id="rsLabel">전체 기간</span><input type="range" id="rsRange" min="0" max="19" value="0"></div>
@@ -244,7 +276,7 @@ html.rm .rv{transform:none;transition-duration:220ms}html.rm #map{transition-dur
 
 <section id="sim"><div class="wrap">
   <h2>지역화폐 광역발급 시뮬레이터</h2>
-  <p class="lead">이웃 시군 주민에게 제천 지역화폐(모아)를 발급하면 제천 상권에 돈이 얼마나 더 들어오고, 시 예산은 얼마나 드는지 계산합니다. 손잡이를 움직여 보세요.</p>
+  <p class="lead">이미 제천에 오는 이웃에게 제천 지역화폐(모아)를 발급하면 제천 상권에 돈이 얼마나 더 들어오고, 시 예산은 얼마나 드는지 계산합니다. 새 손님을 부르는 대신 오던 손님을 한 번 더 오게 하는 방식이라 적은 예산으로 시작할 수 있습니다.</p>
   <div class="sim"><div class="sim-grid">
     <div>
       <div class="field"><label>발급 대상 시군</label><div class="chips" id="chips"></div><div class="help">지금 제천에 돈을 많이 쓰는 순서입니다. 눌러서 넣고 뺍니다.</div></div>
@@ -267,7 +299,7 @@ html.rm .rv{transform:none;transition-duration:220ms}html.rm #map{transition-dur
 
 <section id="dongs"><div class="wrap">
   <h2>우리 동네에는 누가 돈을 쓰러 오나</h2>
-  <p class="lead">동네별로 바깥 손님 비율과 어디서 오는지 보여줍니다. 노란 동네는 바깥 손님이 2할을 넘는 곳입니다. 누르면 지도로 갑니다.</p>
+  <p class="lead">바깥 손님이 많은 동네일수록 지역화폐 효과가 먼저 나타납니다. 노란 동네는 매출의 2할 이상을 바깥 손님이 채우는 곳입니다. 누르면 지도로 갑니다.</p>
   <div class="dongs" id="dongCards"></div>
 </div></section>
 
@@ -277,13 +309,14 @@ const KEY='cb1_2jst_1_f20036d2498b9af9e4827f69';
 const fmt=n=>Math.round(n).toLocaleString('ko-KR');
 const R=DATA.regions, M=DATA.months, N=DATA.nMonths, JC=DATA.center; // [lat,lng]
 const NEAR=['영월군','단양군','정선군','태백시','평창군','횡성군'];
-const near4=R.filter(r=>['영월군','단양군','정선군','태백시'].includes(r.name)).reduce((s,r)=>s+r.in,0);
-heroBig.innerHTML=fmt(near4)+'<small>억 원</small>'; heroIn.textContent=fmt(DATA.totals.in)+'억'; heroOut.textContent=fmt(DATA.totals.out)+'억'; heroNet.textContent='+'+fmt(DATA.totals.in-DATA.totals.out)+'억';
+const near4=R.filter(r=>['영월군','단양군','정선군','원주시'].includes(r.name)).reduce((s,r)=>s+r.in,0);
+heroBig.innerHTML=fmt(near4)+'<small>억 원</small>'; /* 히어로 보조 숫자는 아래 정책 근거 스크립트에서 채움 */
 
 // 랜드마크 (좌표: 매출 CSV 점포 좌표·시청 중심)
 const LANDMARKS=[['제천역',128.2061,37.1366],['제천시청',128.1910,37.1326],['중앙시장',128.2113,37.1366],['의림지',128.2112,37.1770],['세명대학교',128.1963,37.1787],['이마트 제천점',128.2229,37.1232],['씨케이마트(장락)',128.2261,37.1527],['롯데마트',128.2008,37.1401],['명지병원',128.2342,37.1635],['서울병원',128.2061,37.1387],['포레스트 리솜',128.0461,37.1590],['청풍리조트',128.1792,37.0198],['킹즈락CC',128.1784,37.1384]];
 const USE_COLOR=['match',['get','g'],'주거','#FFD9E4','상가','#FFE9A3','업무','#CFE0FF','숙박','#FFD4C2','공공','#C9F0E4','산업','#E3DCFF','#E8E8EC'];
 
+if(maplibregl.setWorkerCount) maplibregl.setWorkerCount(4);
 const map=new maplibregl.Map({container:'map',center:[128.25,37.17],zoom:8.4,pitch:0,maxPitch:70,attributionControl:{compact:true},
   style:{version:8,glyphs:'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
     sources:{carto:{type:'raster',tiles:['https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png?key='+KEY,'https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png?key='+KEY,'https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png?key='+KEY],tileSize:256,attribution:'&copy; OpenStreetMap &copy; CARTO'}},
@@ -311,7 +344,7 @@ map.on('load',()=>{
   map.addSource('dongc',{type:'geojson',data:{type:'FeatureCollection',features:DATA.dongs.features.map(f=>{const r=f.geometry.coordinates[0];const c=r.reduce((a,p)=>[a[0]+p[0],a[1]+p[1]],[0,0]).map(v=>v/r.length);return {type:'Feature',properties:{name:f.properties.name},geometry:{type:'Point',coordinates:c}};})}});
   if(typeof BUILDINGS_C!=='undefined'){
     const C=BUILDINGS_C, S=1e5; const feats=C.b.map(([gi,h,flat])=>{const ring=[]; let x=0,y=0; for(let i=0;i<flat.length;i+=2){x+=flat[i];y+=flat[i+1];ring.push([C.o[0]+x/S,C.o[1]+y/S]);} ring.push(ring[0]); return {type:'Feature',properties:{g:C.g[gi],h:h},geometry:{type:'Polygon',coordinates:[ring]}};});
-    map.addSource('bld',{type:'geojson',data:{type:'FeatureCollection',features:feats}});
+    map.addSource('bld',{type:'geojson',maxzoom:14,buffer:16,tolerance:0.5,data:{type:'FeatureCollection',features:feats}});
     map.addLayer({id:'bld-3d',type:'fill-extrusion',source:'bld',minzoom:12.5,paint:{'fill-extrusion-color':USE_COLOR,'fill-extrusion-height':['get','h'],'fill-extrusion-base':0,'fill-extrusion-opacity':.82}});
   }
   map.addSource('flow',{type:'geojson',data:g.lines}); map.addSource('pts',{type:'geojson',data:g.pts});
@@ -363,7 +396,7 @@ function goCity(e){ if(e) e.preventDefault(); const el=document.getElementById('
 document.querySelectorAll('[data-city]').forEach(a=>a.onclick=goCity);
 zoomCity.onclick=goCity;
 map.on('zoomend',()=>{ if(cityMode&&document.fullscreenElement&&!map.isMoving()&&map.getZoom()<11.5){ cityMode=false; document.exitFullscreen(); } });
-document.addEventListener('fullscreenchange',()=>{ if(!document.fullscreenElement){ cityMode=false; setTimeout(()=>{ map.resize(); document.getElementById('map-sec').scrollIntoView({block:'start'}); },80);} });
+document.addEventListener('fullscreenchange',()=>{ if(!document.fullscreenElement){ cityMode=false; if(NET.on) closeNet(); setTimeout(()=>{ map.resize(); document.getElementById('map-sec').scrollIntoView({block:'start'}); },80);} });
 const fmtW=v=>v>=1e4?(v/1e4).toFixed(1)+'억':Math.round(v).toLocaleString('ko-KR')+'만';
 const fmtA=v=>{ if(v>=9500) return Math.round(v/1e4)+'억 내외'; if(v>=950) return Math.round(v/1e3)+'천만원 내외'; if(v>=95) return Math.round(v/100)+'백만원 내외'; return '1백만원 미만'; };
 const ymLabel=ym=>ym.slice(0,4)+'년 '+(+ym.slice(4))+'월';
@@ -381,15 +414,54 @@ const ymLabel=ym=>ym.slice(0,4)+'년 '+(+ym.slice(4))+'월';
   function render(){
     const ym=TOPS.months[mi], rows=(TOPS.t[ym]||{})[cat]||[];
     tpLabel.textContent=ymLabel(ym); tpRange.value=mi;
-    tpBody.innerHTML=rows.length?rows.map((r,i)=>`<tr><td class="rk">${i+1}</td><td class="nm">${r[0]}<span class="sub">${r[4]}</span></td><td class="v">${fmtA(r[3])}</td></tr>`).join(''):'<tr><td>이달 자료가 없습니다</td></tr>';
+    tpBody.innerHTML=rows.length?rows.map((r,i)=>`<tr data-i="${i}"><td class="rk">${i+1}</td><td class="nm">${r[0]}<span class="sub">${r[4]}</span></td><td class="v">${fmtA(r[3])}</td></tr>`).join(''):'<tr><td>이달 자료가 없습니다</td></tr>';
+    tpBody.querySelectorAll('tr[data-i]').forEach(tr=>tr.onclick=()=>{const r=rows[+tr.dataset.i]; openNetByPos(r[0],r[1],r[2]);});
     mks.forEach(m=>m.remove()); mks=[];
     if(!show()) return;
-    rows.forEach((r,i)=>{const el=document.createElement('div'); el.className='lm lm-top'+(i===0?' r1':''); el.innerHTML=`<i>${i+1}</i>${r[0]} · ${fmtA(r[3])}`; mks.push(new maplibregl.Marker({element:el,anchor:'bottom',offset:[0,-4]}).setLngLat([r[1],r[2]]).addTo(map));});
+    rows.forEach((r,i)=>{const el=document.createElement('div'); el.className='lm lm-top'+(i===0?' r1':''); el.innerHTML=`<i>${i+1}</i>${r[0]} · ${fmtA(r[3])}`; el.onclick=ev=>{ev.stopPropagation(); openNetByPos(r[0],r[1],r[2]);}; mks.push(new maplibregl.Marker({element:el,anchor:'bottom',offset:[0,-4]}).setLngLat([r[1],r[2]]).addTo(map));});
   }
   tpRange.oninput=()=>{mi=+tpRange.value;render();};
   tpPlay.onclick=()=>{ if(timer){clearInterval(timer);timer=null;tpPlay.textContent='▶';return;} if(mi>=TOPS.months.length-1) mi=0; tpPlay.textContent='❚❚'; timer=setInterval(()=>{mi=(mi+1)%TOPS.months.length; render(); if(mi===TOPS.months.length-1){clearInterval(timer);timer=null;tpPlay.textContent='▶';}},800); };
   let was=null; map.on('zoomend',()=>{const s=show(); P.classList.toggle('show',s); if(s!==was){was=s; render();}}); map.fire('zoomend');
 })();
+
+// ---- 당일 동반매장 네트워크: 가게를 누르면 다른 흐름은 숨기고 그 가게의 동반매장 1~5위만 그림
+const NET={markers:[],on:false};
+function openNetByPos(name,lng,lat){ if(typeof COMP==='undefined') return; let best=null;
+  for(const [id,v] of Object.entries(COMP.s)){ if(Math.abs(v[1]-lng)<2e-5&&Math.abs(v[2]-lat)<2e-5){ if(!best||v[0].slice(0,3)===name.slice(0,3)) best=id; } }
+  if(best) openNet(best); else { netHint.textContent=name+'은 동반방문 자료가 없습니다'; netHint.classList.add('show'); setTimeout(()=>netHint.classList.remove('show'),2200); } }
+function openNet(id){ if(typeof COMP==='undefined'||!COMP.l[id]) return; const [nm,x,y]=COMP.s[id], L=COMP.l[id]; const mx=Math.max(...L.map(l=>l[3]));
+  NET.on=true; document.body.classList.add('net-on');
+  ['flow','pts','jc','shops'].forEach(l=>map.getLayer(l)&&map.setLayoutProperty(l,'visibility','none'));
+  const lines=L.map(l=>({type:'Feature',properties:{w:2+8*Math.sqrt(l[3]/mx)},geometry:{type:'LineString',coordinates:curve([x,y],[l[1],l[2]])}}));
+  const pts=L.map(l=>({type:'Feature',properties:{r:6+10*Math.sqrt(l[3]/mx)},geometry:{type:'Point',coordinates:[l[1],l[2]]}})).concat([{type:'Feature',properties:{r:13,src:1},geometry:{type:'Point',coordinates:[x,y]}}]);
+  map.getSource('netp').setData({type:'FeatureCollection',features:lines.concat(pts)});
+  ['net','netp'].forEach(l=>map.setLayoutProperty(l,'visibility','visible'));
+  NET.markers.forEach(m=>m.remove()); NET.markers=[];
+  const se=document.createElement('div'); se.className='lm lm-src'; se.textContent=nm; NET.markers.push(new maplibregl.Marker({element:se,anchor:'bottom',offset:[0,-16]}).setLngLat([x,y]).addTo(map));
+  L.forEach((l,i)=>{const el=document.createElement('div'); el.className='lm lm-net'; el.innerHTML=`<i>${i+1}</i>${l[0]} <small>${l[3].toLocaleString('ko-KR')}회</small>`; NET.markers.push(new maplibregl.Marker({element:el,anchor:'top',offset:[0,10]}).setLngLat([l[1],l[2]]).addTo(map));});
+  let x0=x,y0=y,x1=x,y1=y; L.forEach(l=>{x0=Math.min(x0,l[1]);x1=Math.max(x1,l[1]);y0=Math.min(y0,l[2]);y1=Math.max(y1,l[2]);});
+  map.fitBounds([[x0,y0],[x1,y1]],{padding:{top:90,bottom:80,left:90,right:90},maxZoom:17.5,pitch:40,duration:900});
+  detail.innerHTML=`<h3>${nm}</h3><div class="muted">이 가게 손님이 같은 날 함께 들른 곳 (2024년 4월부터, 동반 횟수 합)</div><ul class="rank" style="font-size:15px;margin-top:8px">${L.map((l,i)=>`<li><span>${i+1}. ${l[0]}</span><b>${l[3].toLocaleString('ko-KR')}회</b></li>`).join('')}</ul>`; }
+function closeNet(){ NET.on=false; document.body.classList.remove('net-on'); NET.markers.forEach(m=>m.remove()); NET.markers=[];
+  ['net','netp'].forEach(l=>map.getLayer(l)&&map.setLayoutProperty(l,'visibility','none'));
+  ['flow','pts','jc','shops'].forEach(l=>map.getLayer(l)&&map.setLayoutProperty(l,'visibility','visible')); }
+map.on('load',()=>{
+  const nc=document.createElement('button'); nc.id='netClose'; nc.textContent='네트워크 닫기'; nc.onclick=closeNet; map.getContainer().appendChild(nc);
+  const nh=document.createElement('div'); nh.id='netHint'; map.getContainer().appendChild(nh);
+  map.addSource('net',{type:'geojson',data:{type:'FeatureCollection',features:[]}}); map.addSource('netp',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
+  map.addLayer({id:'net',type:'line',source:'netp',filter:['==',['geometry-type'],'LineString'],layout:{'line-cap':'round',visibility:'none'},paint:{'line-color':'#4262FF','line-width':['get','w'],'line-opacity':.8}});
+  map.addLayer({id:'netp',type:'circle',source:'netp',filter:['==',['geometry-type'],'Point'],layout:{visibility:'none'},paint:{'circle-radius':['get','r'],'circle-color':['case',['has','src'],'#FFD02F','#4262FF'],'circle-stroke-color':'#fff','circle-stroke-width':2.5}});
+  if(typeof COMP!=='undefined'){
+    map.addSource('shops',{type:'geojson',data:{type:'FeatureCollection',features:Object.entries(COMP.s).map(([id,v])=>({type:'Feature',properties:{id,name:v[0]},geometry:{type:'Point',coordinates:[v[1],v[2]]}}))}});
+    map.addLayer({id:'shops',type:'circle',source:'shops',minzoom:13,paint:{'circle-radius':['interpolate',['linear'],['zoom'],13,3.5,16,6],'circle-color':'#050038','circle-opacity':.75,'circle-stroke-color':'#fff','circle-stroke-width':1.2}});
+    map.on('click','shops',e=>{ if(NET.on) return; openNet(e.features[0].properties.id); });
+    const pop=new maplibregl.Popup({closeButton:false,offset:8});
+    map.on('mouseenter','shops',e=>{map.getCanvas().style.cursor='pointer'; pop.setLngLat(e.features[0].geometry.coordinates).setHTML(e.features[0].properties.name+' · 눌러서 동반매장 보기').addTo(map);});
+    map.on('mouseleave','shops',()=>{map.getCanvas().style.cursor=''; pop.remove();});
+  }
+  map.on('zoomend',()=>{ const h=document.getElementById('netHint'); if(!h) return; if(!NET.on&&map.getZoom()>=13&&typeof COMP!=='undefined'){ h.textContent='점을 누르면 그 가게의 동반매장 1~5위가 그려집니다'; h.classList.add('show'); } else if(!NET.on) h.classList.remove('show'); });
+});
 
 // ---- 이웃 주민 업종별 제천 소비 표
 (function(){
@@ -467,5 +539,24 @@ document.querySelectorAll('.dong').forEach(el=>el.onclick=()=>{showDong(el.datas
 .lm-reg{background:transparent;border:0;box-shadow:none;font-size:13px;text-shadow:0 0 3px #fff,0 0 6px #fff}
 .lm-amt{font-size:13px;padding:0;border:0;background:transparent;box-shadow:none;text-shadow:0 0 3px #fff,0 0 6px #fff,0 0 8px #fff}.lm-amt.amt-in{color:#050038}.lm-amt.amt-out{color:#1F3BCC}
 .lm-jc{font-size:15px;font-weight:700}.lm-dong{background:transparent;border:0;box-shadow:none;text-shadow:0 0 3px #fff,0 0 6px #fff}</style>
+<script>
+// 정책 근거 숫자: 영월·단양·정선·원주 주민의 연도별 제천 소비, 소비 집중도, 시뮬레이터 기본 효과
+(function(){
+  const FOUR=['영월군','단양군','정선군','원주시'], R4=FOUR.map(n=>DATA.regions.find(x=>x.name===n)).filter(Boolean);
+  const ys=(r,y)=>Object.entries(r.inM).filter(([m])=>m.startsWith(y)).reduce((a,[,v])=>a+v,0);
+  const y25=R4.reduce((a,r)=>a+ys(r,'2025'),0), y26=R4.reduce((a,r)=>a+ys(r,'2026'),0);
+  heroY25.textContent=fmt(y25)+'억'; heroY26.textContent=fmt(y26)+'억'; heroUp.textContent=y26>=y25?'작년 추월':Math.round(y26/y25*100)+'%';
+  subY25.textContent=fmt(y25)+'억 원';
+  w1n.innerHTML=fmt(y25)+'<small>억 원</small>';
+  w1p.textContent='작년 한 해 '+R4.map(r=>r.name.replace(/[군시]$/,'')+' '+fmt(ys(r,'2025'))+'억').join(', ')+'. 올해는 8개월 만에 '+fmt(y26)+'억으로 작년을 넘었습니다. 새 손님을 부르는 정책이 아니라, 이미 오는 이웃을 한 번 더 오게 하는 정책입니다.';
+  if(typeof RS!=='undefined'){ const BIG=['종합소매점','주유소/충전소','병원','약국/한약방']; let tot=0,big=0;
+    FOUR.forEach(k=>{ if(!RS[k]) return; RS[k].rows.forEach(([b,n,s,hf])=>{ if(hf) return; const v=Object.entries(s).filter(([m])=>m.startsWith('2025')).reduce((a,[,x])=>a+x,0); tot+=v; if(BIG.includes(n)) big+=v; }); });
+    const sh=Math.round(big/tot*100); w2n.innerHTML=sh+'<small>%</small>';
+    w2p.textContent='작년 이웃 주민이 제천에서 쓴 돈의 '+sh+'%가 마트·주유소·병원·약국 네 곳에 몰렸습니다. 식당과 카페, 골목 가게까지는 거의 닿지 않습니다.'; }
+  const add=(oAdd.textContent||'').replace(/[^0-9,]/g,'');
+  w3n.innerHTML='+'+add+'<small>억 원/년</small>';
+  w3p.textContent='영월·단양·정선 주민 10%가 제천 지역화폐를 쓰고 캐시백 7%를 받으면, 제천 상권에 1년에 '+add+'억 원이 더 들어옵니다. 시뮬레이터에서 직접 바꿔 볼 수 있습니다.';
+})();
+</script>
 </body>
 </html>
