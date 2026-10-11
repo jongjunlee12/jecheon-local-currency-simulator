@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="description" content="이웃 시군 주민에게 제천 지역화폐를 발급하면 제천 상권에 돈이 얼마나 돌아오는지 계산하는 공공데이터 기반 시뮬레이터">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>제천 지역화폐 광역발급 시뮬레이터</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js"></script>
+<script src="data.js?v=2"></script>
+<script src="buildings.js?v=2" defer></script>
+<script src="tops.js?v=1"></script>
+<script src="regionspend.js?v=1"></script>
+<style>
+/* 시내 TOP5 패널 (지도 위) */
+#topsPanel{position:absolute;top:12px;right:12px;z-index:5;width:340px;max-height:calc(100% - 24px);overflow:auto;background:rgba(255,255,255,.96);border:1px solid var(--hairline);border-radius:16px;box-shadow:rgba(5,0,56,.12) 0 8px 24px;padding:16px;opacity:0;transform:translateY(-8px);pointer-events:none;transition:opacity 220ms var(--ease),transform 220ms var(--ease)}
+#topsPanel.show{opacity:1;transform:none;pointer-events:auto}
+#topsPanel h4{margin:0 0 10px;font-size:17px;font-weight:600}
+.tp-cats{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.tp-cats button{border:1px solid var(--hairline-strong);background:#fff;border-radius:9999px;padding:6px 11px;font:inherit;font-size:13px;font-weight:500;cursor:pointer;transition:transform 160ms var(--ease)}
+.tp-cats button:active{transform:scale(.97)}.tp-cats button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.tp-time{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.tp-time button{flex:0 0 auto;width:36px;height:36px;border-radius:50%;border:0;background:var(--yellow);font-size:14px;cursor:pointer;transition:transform 160ms var(--ease)}.tp-time button:active{transform:scale(.95)}
+.tp-time b{font-size:15px;font-weight:600;min-width:84px}
+.tp-time input[type=range]::-webkit-slider-thumb{width:22px;height:22px}
+.tp-tab{width:100%;border-collapse:collapse;font-size:14px}
+.tp-tab td{padding:6px 4px;border-bottom:1px solid var(--hairline);line-height:1.3}.tp-tab tr:last-child td{border-bottom:0}
+.tp-tab .rk{width:26px;font-weight:700;color:var(--slate)}.tp-tab tr:first-child .rk{color:#C99A00}
+.tp-tab .nm{font-weight:600}.tp-tab .sub{display:block;font-size:12px;color:var(--steel);font-weight:400}
+.tp-tab .v{text-align:right;font-weight:600;white-space:nowrap}
+.lm-top{font-size:13px;font-weight:600;padding:4px 10px 4px 4px;display:flex;align-items:center;gap:6px}
+.lm-top i{font-style:normal;width:20px;height:20px;border-radius:50%;background:var(--ink);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px}
+.lm-top.r1 i{background:var(--yellow);color:var(--ink)}
+/* 이웃 주민 업종 표 */
+.rs-grid{display:grid;grid-template-columns:300px 1fr;gap:24px;align-items:start}
+.rs-sum{background:var(--yellow);border:0;border-radius:28px}.rs-sum .num{font-size:52px}
+.rs-tab{width:100%;border-collapse:collapse;font-size:16px;background:#fff;border:1px solid var(--hairline);border-radius:16px;overflow:hidden}
+.rs-tab th{text-align:left;font-size:13px;font-weight:600;color:var(--steel);padding:12px 14px;background:var(--surface);border-bottom:1px solid var(--hairline)}
+.rs-tab td{padding:11px 14px;border-bottom:1px solid var(--hairline)}.rs-tab tr:last-child td{border-bottom:0}
+.rs-tab .r{text-align:right;white-space:nowrap}.rs-tab .bar{height:8px;border-radius:4px;background:var(--yellow);display:inline-block;vertical-align:middle;margin-right:8px}
+.rs-tab tr.hf td{color:var(--stone)}.rs-tab .cat{font-size:13px;color:var(--steel)}
+.rs-note{font-size:14px;color:var(--steel);margin-top:10px}
+@media (max-width:1023px){.rs-grid{grid-template-columns:1fr}#topsPanel{width:260px}}
+</style>
+<style>
+:root{
+  --yellow:#FFD02F; --yellow-light:#FFF4C2; --blue:#4262FF; --coral-light:#FFE0D6; --coral-dark:#8A2E14; --rose-light:#FFE4EC; --teal-light:#D6F5EE; --moss:#0F5C4A;
+  --canvas:#FFFFFF; --surface:#F7F7F8; --hairline:#E6E6E8; --hairline-strong:#D2D2D6;
+  --ink:#050038; --slate:#5C5C66; --steel:#7A7A85; --primary:#050038; --footer:#0B0B1A;
+  --r-xl:16px; --r-xxxl:28px; --r-feature:32px; --r-full:9999px; --ease:cubic-bezier(.23,1,.32,1);
+}
+*{box-sizing:border-box} html{scroll-behavior:smooth}
+body{margin:0;background:var(--canvas);color:var(--ink);font-family:"Roobert PRO","Pretendard Variable",Pretendard,"Noto Sans KR",-apple-system,sans-serif;font-size:18px;line-height:1.5;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+.wrap{max-width:1280px;margin:0 auto;padding:0 32px}
+nav{position:sticky;top:0;z-index:50;background:var(--canvas);border-bottom:1px solid var(--hairline);height:72px;display:flex;align-items:center}
+nav .wrap{display:flex;align-items:center;justify-content:space-between;width:100%}
+.brand{display:flex;align-items:center;gap:12px;font-weight:500;font-size:21px}
+.brand i{width:34px;height:34px;border-radius:8px;background:var(--yellow);display:inline-block;flex:0 0 auto}
+.nav-links{display:flex;gap:28px;font-size:16px;color:var(--slate);font-weight:500}
+.btn{display:inline-flex;align-items:center;justify-content:center;height:48px;padding:0 26px;border-radius:var(--r-full);font-weight:500;font-size:16px;border:1px solid transparent;cursor:pointer;transition:transform 160ms var(--ease);white-space:nowrap;user-select:none}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-secondary{background:transparent;color:var(--ink);border-color:var(--hairline-strong)}
+.btn-city{background:var(--yellow);color:var(--ink);font-weight:700;box-shadow:0 0 0 3px rgba(255,208,47,.35)}
+.btn-city::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--ink);margin-right:8px}
+.btn-lg{height:58px;padding:0 32px;font-size:18px}
+.hero{padding:80px 0 64px}
+.hero .grid{display:grid;grid-template-columns:1.15fr 1fr;gap:48px;align-items:center}
+h1{font-size:60px;line-height:1.1;letter-spacing:-1.5px;font-weight:500;margin:0 0 24px;max-width:14ch}
+h1 em{font-style:normal;background:linear-gradient(transparent 62%,var(--yellow) 62%)}
+.sub{font-size:22px;color:var(--slate);max-width:34ch;margin:0 0 32px}
+.cta-row{display:flex;gap:12px;flex-wrap:wrap}
+.stat-card{background:var(--yellow);border-radius:var(--r-xxxl);padding:40px;box-shadow:rgba(5,0,56,.08) 0 12px 32px -4px}
+.stat-card .big{font-size:84px;line-height:1.05;letter-spacing:-2px;font-weight:500}
+.stat-card .big small{font-size:36px;letter-spacing:0}
+.stat-card p{margin:12px 0 0;font-size:20px}
+.stat-card .row{display:flex;gap:20px;margin-top:28px;padding-top:24px;border-top:1px solid rgba(5,0,56,.15)}
+.stat-card .row div{flex:1}.stat-card .row b{display:block;font-size:30px;font-weight:500}.stat-card .row span{font-size:15px;color:#4b4300}
+section{padding:80px 0}
+h2{font-size:44px;line-height:1.15;letter-spacing:-.8px;font-weight:500;margin:0 0 12px}
+.lead{font-size:20px;color:var(--slate);max-width:60ch;margin:0 0 36px}
+.map-panel{display:grid;grid-template-columns:1fr 380px;gap:24px}
+#map{height:680px;border-radius:var(--r-xl);border:1px solid var(--hairline);box-shadow:rgba(5,0,56,.08) 0 12px 32px -4px;overflow:hidden;background:#eef0f3}
+.maplibregl-popup-content{font-family:inherit;font-size:15px;border-radius:10px;padding:8px 12px;box-shadow:rgba(5,0,56,.12) 0 4px 16px}
+.maplibregl-ctrl-group{border-radius:10px!important;box-shadow:rgba(5,0,56,.1) 0 2px 8px!important}
+.side{display:flex;flex-direction:column;gap:16px}
+.card{background:var(--canvas);border:1px solid var(--hairline);border-radius:var(--r-xl);padding:24px}
+.card h3{margin:0 0 8px;font-size:22px;font-weight:500}
+.card .num{font-size:48px;letter-spacing:-1px;font-weight:500;line-height:1.1}
+.card .muted{color:var(--steel);font-size:15px}
+.toggle{display:inline-flex;background:var(--surface);border-radius:var(--r-full);padding:4px;gap:4px}
+.toggle button{border:0;background:transparent;border-radius:var(--r-full);padding:10px 20px;font:inherit;font-size:16px;font-weight:500;color:var(--steel);cursor:pointer;transition:background 160ms,color 160ms}
+.toggle button.on{background:var(--primary);color:#fff}
+.ctrl{display:flex;align-items:center;gap:16px;margin-bottom:16px;flex-wrap:wrap}
+input[type=range]{-webkit-appearance:none;width:100%;height:8px;border-radius:4px;background:var(--hairline);outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:28px;height:28px;border-radius:50%;background:var(--ink);border:4px solid #fff;box-shadow:0 2px 8px rgba(5,0,56,.25);cursor:pointer}
+input[type=range]:disabled{opacity:.35}
+.month{font-size:18px;font-weight:500;min-width:110px}
+.rank{list-style:none;margin:0;padding:0}
+.rank li{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--hairline);font-size:17px;cursor:pointer}
+.rank li:last-child{border-bottom:0}
+.rank li b{font-weight:500}
+.rank li .bar{height:8px;border-radius:4px;background:var(--yellow);margin-right:12px;flex:0 0 auto}
+.rank li.on{color:var(--blue)}
+.legend{display:flex;gap:14px 18px;font-size:14px;color:var(--slate);margin-top:12px;flex-wrap:wrap;align-items:center}
+.legend i{display:inline-block;width:14px;height:14px;border-radius:50%;vertical-align:-2px;margin-right:6px}
+.legend i.sq{border-radius:3px;border:1px solid rgba(5,0,56,.15)}
+.sim{background:var(--surface);border-radius:var(--r-feature);padding:48px}
+.sim-grid{display:grid;grid-template-columns:420px 1fr;gap:40px}
+.field{margin-bottom:28px}
+.field label{display:block;font-size:18px;font-weight:500;margin-bottom:10px}
+.field .val{float:right;color:var(--blue);font-weight:500}
+.field .help{font-size:14px;color:var(--steel);margin-top:6px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px solid var(--hairline-strong);background:var(--canvas);border-radius:var(--r-full);padding:10px 16px;font-size:16px;font-weight:500;cursor:pointer;transition:background 140ms,transform 160ms var(--ease);user-select:none}
+.chip:active{transform:scale(.97)}
+.chip.on{background:var(--primary);color:#fff;border-color:var(--primary)}
+.results{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.res{border-radius:var(--r-xxxl);padding:28px;min-height:190px;display:flex;flex-direction:column;justify-content:space-between}
+.res .lab{font-size:16px;font-weight:500;opacity:.85}
+.res .n{font-size:56px;letter-spacing:-1.5px;font-weight:500;line-height:1.05}
+.res .n small{font-size:24px;letter-spacing:0}
+.res-yellow{background:var(--yellow)}.res-teal{background:var(--teal-light);color:var(--moss)}.res-coral{background:var(--coral-light);color:var(--coral-dark)}.res-rose{background:var(--rose-light)}
+.res.wide{grid-column:1/-1;min-height:auto}
+.bars{display:flex;flex-direction:column;gap:12px;margin-top:8px}
+.bars .b{display:grid;grid-template-columns:90px 1fr 150px;align-items:center;gap:12px;font-size:16px}
+.bars .b .t{height:22px;border-radius:11px;background:#fff;overflow:hidden;position:relative}
+.bars .b .t i{position:absolute;top:0;left:0;height:100%;background:var(--ink);border-radius:11px;transition:width 300ms var(--ease)}
+.bars .b .t i.add{background:var(--blue);border-radius:0 11px 11px 0}
+.formula{font-size:15px;color:var(--steel);margin-top:20px;line-height:1.6}
+.dongs{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.dong{border-radius:var(--r-xxxl);padding:24px;border:1px solid var(--hairline);background:var(--canvas);cursor:pointer;transition:transform 160ms var(--ease)}
+.dong:active{transform:scale(.98)}
+.dong.hot{background:var(--yellow-light);border-color:transparent}
+.dong h4{margin:0 0 4px;font-size:22px;font-weight:500}
+.dong .p{font-size:36px;font-weight:500;letter-spacing:-.5px}
+.dong .f{font-size:14px;color:var(--slate);margin-top:8px}
+footer{background:var(--footer);color:#fff;padding:64px 0;margin-top:40px}
+footer .cols{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:40px;font-size:15px;color:rgba(255,255,255,.72);line-height:1.7}
+footer h5{color:#fff;font-size:17px;margin:0 0 8px;font-weight:500}
+@media (max-width:1023px){.hero .grid,.map-panel,.sim-grid{grid-template-columns:1fr}h1{font-size:44px}.results{grid-template-columns:1fr}.dongs{grid-template-columns:repeat(2,1fr)}footer .cols{grid-template-columns:1fr}.nav-links{display:none}#map{height:520px}}
+@media (max-width:640px){.wrap{padding:0 16px}h1{font-size:36px}.stat-card .big{font-size:56px}.sim{padding:24px}.dongs{grid-template-columns:1fr}.brand{font-size:17px}}
+/* 스크롤 인터랙션 */
+.rv{opacity:0;transform:translateY(28px);transition:opacity 650ms var(--ease),transform 650ms var(--ease)}
+.rv.in{opacity:1;transform:none}
+.rv-d1{transition-delay:80ms}.rv-d2{transition-delay:160ms}.rv-d3{transition-delay:240ms}.rv-d4{transition-delay:320ms}
+#map{transform-origin:50% 30%;transform:scale(var(--ms,.84));border-radius:calc(16px + 32px*(1 - var(--mp,0)));transition:transform 500ms var(--ease),border-radius 500ms var(--ease),box-shadow 500ms var(--ease)}
+.res,.dong,.stat-card{background-color:#fff;transition:background-color 700ms var(--ease),color 500ms var(--ease),transform 160ms var(--ease)}
+.res.paint.res-yellow,.stat-card.paint{background-color:var(--yellow)}
+.res.paint.res-teal{background-color:var(--teal-light)}.res.paint.res-coral{background-color:var(--coral-light)}.res.paint.res-rose{background-color:var(--rose-light)}
+.dong.hot.paint{background-color:var(--yellow-light)}
+.res:not(.paint){color:var(--ink)}
+#sim{transition:background-color 900ms var(--ease),color 900ms var(--ease)}
+#sim.dark{background:#0B0B1A;color:#fff}
+#sim.dark .lead{color:rgba(255,255,255,.7)}
+#sim.dark .sim{background:#15152A}
+#sim.dark .field label,#sim.dark .field .help{color:rgba(255,255,255,.85)}#sim.dark .field .help{color:rgba(255,255,255,.55)}
+#sim.dark .chip{background:#1F1F38;color:#fff;border-color:#33335A}#sim.dark .chip.on{background:var(--yellow);color:var(--ink);border-color:var(--yellow)}
+#sim.dark input[type=range]{background:#33335A}#sim.dark input[type=range]::-webkit-slider-thumb{background:var(--yellow);border-color:#15152A}
+#sim.dark .formula{color:rgba(255,255,255,.6)}#sim.dark .field .val{color:var(--yellow)}
+#sim.dark .res:not(.paint){background-color:#1F1F38;color:#fff}
+html.rm .rv{transform:none;transition-duration:220ms}html.rm #map{transition-duration:220ms}html.rm .res,html.rm .dong,html.rm .stat-card,html.rm #sim{transition-duration:260ms}
+/* 스크롤 타임라인(지원 브라우저): JS 없이 스크롤 진행에 직접 연동 */
+@supports (animation-timeline: view()){
+  .rv{transition:none;animation:rvIn linear both;animation-timeline:view();animation-range:entry 5% entry 45%}
+  .rv-d1{animation-range:entry 10% entry 50%}.rv-d2{animation-range:entry 15% entry 55%}.rv-d3{animation-range:entry 20% entry 60%}.rv-d4{animation-range:entry 25% entry 65%}
+  @keyframes rvIn{from{opacity:0;transform:translateY(28px)}to{opacity:1;transform:none}}
+  html.rm .rv{animation-name:rvInRm}@keyframes rvInRm{from{opacity:0}to{opacity:1}}
+  #map{transition:none;transform:none;animation:mapGrow linear both;animation-timeline:view();animation-range:entry 0% entry 100%}
+  @keyframes mapGrow{from{transform:scale(.84);border-radius:48px;box-shadow:rgba(5,0,56,.02) 0 4px 12px}to{transform:scale(1);border-radius:16px;box-shadow:rgba(5,0,56,.10) 0 18px 44px -6px}}
+  .res,.dong.hot,.stat-card{transition:none;animation:rvIn linear both,paintBase linear both;animation-timeline:view(),view();animation-range:entry 5% entry 45%,entry 55% entry 105%}
+  .res-yellow,.stat-card{--pc:var(--yellow)}.res-teal{--pc:var(--teal-light)}.res-coral{--pc:var(--coral-light)}.res-rose{--pc:var(--rose-light)}.dong.hot{--pc:var(--yellow-light)}
+  @keyframes paintBase{from{background-color:#fff}to{background-color:var(--pc)}}
+  .res.rv-d2{animation-range:entry 10% entry 50%,entry 65% entry 115%}.res.rv-d3{animation-range:entry 15% entry 55%,entry 75% entry 125%}.res.rv-d4{animation-range:entry 20% entry 60%,entry 85% entry 135%}
+  .dong.hot.rv-d2{animation-range:entry 10% entry 50%,entry 65% entry 115%}.dong.hot.rv-d3{animation-range:entry 15% entry 55%,entry 75% entry 125%}.dong.hot.rv-d4{animation-range:entry 20% entry 60%,entry 85% entry 135%}
+  #sim{transition:none;animation:simDark linear both;animation-timeline:view();animation-range:entry 20% entry 55%}
+  @keyframes simDark{from{background-color:#fff;color:var(--ink)}to{background-color:#0B0B1A;color:#fff}}
+  #sim .chip,#sim input[type=range]{animation:none}
+  #sim .sim{animation:simPanel linear both;animation-timeline:view();animation-range:entry 0% entry 40%}
+  @keyframes simPanel{from{background-color:#F7F7F8}to{background-color:#15152A}}
+  #sim .lead,#sim .field .help,#sim .formula{animation:toDim linear both;animation-timeline:view();animation-range:entry 0% entry 40%}
+  @keyframes toDim{from{color:#5C5C66}to{color:rgba(255,255,255,.65)}}
+  #sim .field label{animation:toLight linear both;animation-timeline:view();animation-range:entry 0% entry 40%}
+  @keyframes toLight{from{color:var(--ink)}to{color:#fff}}
+}
+</style>
+</head>
+<body>
+<nav><div class="wrap">
+  <a class="brand" href="#"><i></i>제천 지역화폐 광역발급 시뮬레이터</a>
+  <div class="nav-links"><a href="#map-sec">돈의 흐름</a><a href="#nb">이웃 주민</a><a href="#sim">시뮬레이터</a><a href="#dongs">동네별</a></div>
+  <a class="btn btn-city" href="#map-sec" data-city>제천 시내 매출순위 보기</a>
+</div></nav>
+
+<header class="hero"><div class="wrap grid">
+  <div>
+    <h1>영월·단양·정선 주민에게 제천 지역화폐를 주면 <em>얼마나 돌아올까</em></h1>
+    <p class="sub">제천 상권에 들어오는 바깥 돈의 6할이 강원 남부에서 옵니다. 그 손님들을 준시민으로 모셨을 때의 효과를 숫자로 보여드립니다.</p>
+    <div class="cta-row"><a class="btn btn-city btn-lg" href="#map-sec" data-city>제천 시내 매출순위 보기</a><a class="btn btn-secondary" href="#sim">시뮬레이터 열기</a></div>
+  </div>
+  <div class="stat-card">
+    <div class="big" id="heroBig">0<small>억 원</small></div>
+    <p>영월·단양·정선·태백 주민이 제천에서 쓴 돈<br><span style="font-size:15px;color:#4b4300">2025년 1월부터 2026년 8월까지 19개월 (2025년 11월 제외)</span></p>
+    <div class="row"><div><b id="heroIn">0억</b><span>바깥에서 들어온 돈</span></div><div><b id="heroOut">0억</b><span>제천시민이 바깥에 쓴 돈</span></div><div><b id="heroNet">+0억</b><span>제천에 남은 돈</span></div></div>
+  </div>
+</div></header>
+
+<section id="map-sec"><div class="wrap">
+  <h2>제천으로 돈이 어디서 오나</h2>
+  <p class="lead">선이 굵을수록 돈이 많이 오는 곳입니다. 지도를 가까이 당기면 제천 시내 건물이 용도별 색으로 나타납니다. 동네를 누르면 그 동네에 누가 돈을 쓰는지 나옵니다.</p>
+  <div class="ctrl">
+    <div class="toggle"><button class="on" data-dir="in">들어오는 돈</button><button data-dir="out">나가는 돈</button></div>
+    <div style="flex:1;min-width:260px;display:flex;align-items:center;gap:14px"><span class="month" id="mLabel">전체 기간</span><input type="range" id="mRange" min="0" max="20" value="0"></div>
+    <a class="btn btn-city" id="zoomCity" style="height:42px;font-size:15px">제천 시내 매출순위 보기</a>
+    <a class="btn btn-primary" id="fullBtn" style="height:42px;font-size:15px">지도 전체 화면</a>
+  </div>
+  <div class="map-panel">
+    <div><div id="map"></div>
+      <div class="legend"><span><i style="background:#FFD02F"></i>들어오는 돈</span><span><i style="background:#4262FF"></i>나가는 돈</span><span><i style="background:#050038"></i>제천시</span>
+        <span style="margin-left:6px;color:#9A9AA3">건물 용도</span><span><i class="sq" style="background:#FFD9E4"></i>주거</span><span><i class="sq" style="background:#FFE9A3"></i>상가</span><span><i class="sq" style="background:#CFE0FF"></i>업무</span><span><i class="sq" style="background:#FFD4C2"></i>숙박·위락</span><span><i class="sq" style="background:#C9F0E4"></i>공공·의료·교육</span><span><i class="sq" style="background:#E3DCFF"></i>산업</span></div>
+    </div>
+    <div class="side">
+      <div class="card"><h3 id="sideTitle">바깥에서 온 돈, 많은 순</h3><ul class="rank" id="rankList"></ul></div>
+      <div class="card" id="detail"><h3>지역을 누르세요</h3><div class="muted">지도의 동그라미나 위 목록을 누르면 자세히 나옵니다.</div></div>
+    </div>
+  </div>
+</div></section>
+
+<section id="nb"><div class="wrap">
+  <h2>이웃 주민은 제천 어디에 돈을 쓰나</h2>
+  <p class="lead">지역을 고르면 그 주민들이 제천에서 어떤 업종에 돈을 썼는지 표로 보여줍니다. 손잡이로 달을 고르면 그달 기준으로 바뀝니다.</p>
+  <div class="ctrl">
+    <div class="toggle" id="rsTabs"></div>
+    <div style="flex:1;min-width:260px;display:flex;align-items:center;gap:14px"><span class="month" id="rsLabel">전체 기간</span><input type="range" id="rsRange" min="0" max="19" value="0"></div>
+  </div>
+  <div class="rs-grid">
+    <div class="card rs-sum" id="rsSum"></div>
+    <div><table class="rs-tab"><thead><tr><th style="width:64px;white-space:nowrap">순위</th><th>업종</th><th class="r">제천에서 쓴 돈</th><th class="r" style="width:90px">비중</th><th style="width:150px">달별 흐름</th></tr></thead><tbody id="rsBody"></tbody></table>
+      <p class="rs-note">2026년 1월부터 일부 결제가 '미분류'로 잡혀 회색으로 따로 표시했습니다. 2025년 11월은 결측이 많아 뺐습니다.</p></div>
+  </div>
+</div></section>
+
+<section id="sim"><div class="wrap">
+  <h2>지역화폐 광역발급 시뮬레이터</h2>
+  <p class="lead">이웃 시군 주민에게 제천 지역화폐(모아)를 발급하면 제천 상권에 돈이 얼마나 더 들어오고, 시 예산은 얼마나 드는지 계산합니다. 손잡이를 움직여 보세요.</p>
+  <div class="sim"><div class="sim-grid">
+    <div>
+      <div class="field"><label>발급 대상 시군</label><div class="chips" id="chips"></div><div class="help">지금 제천에 돈을 많이 쓰는 순서입니다. 눌러서 넣고 뺍니다.</div></div>
+      <div class="field"><label>가입률 <span class="val" id="vJoin">10%</span></label><input type="range" id="rJoin" min="1" max="50" value="10"><div class="help">그 지역 주민 중 몇 사람이 카드를 만들까</div></div>
+      <div class="field"><label>캐시백 <span class="val" id="vCash">7%</span></label><input type="range" id="rCash" min="1" max="15" value="7"><div class="help">제천에서 쓰면 돌려주는 비율. 이게 예산입니다.</div></div>
+      <div class="field"><label>가입자 소비 증가 <span class="val" id="vLift">30%</span></label><input type="range" id="rLift" min="0" max="100" value="30"><div class="help">카드를 만든 사람이 제천에서 지금보다 얼마나 더 쓸까</div></div>
+      <div class="field"><label>충북 도비 분담 <span class="val" id="vShare">30%</span></label><input type="range" id="rShare" min="0" max="80" value="30"><div class="help">캐시백 예산 중 도가 부담하는 몫</div></div>
+    </div>
+    <div>
+      <div class="results">
+        <div class="res res-yellow"><div class="lab">제천에 더 들어오는 돈 (1년)</div><div class="n" id="oAdd">0<small>억</small></div></div>
+        <div class="res res-coral"><div class="lab">제천시가 내는 예산 (1년)</div><div class="n" id="oCost">0<small>억</small></div></div>
+        <div class="res res-teal"><div class="lab">예산 1억으로 들어오는 돈</div><div class="n" id="oRoi">0<small>억</small></div></div>
+        <div class="res res-rose wide"><div class="lab">지역별 지금 소비 → 발급 후 소비 (1년, 억원)</div><div class="bars" id="bars"></div></div>
+      </div>
+      <p class="formula" id="formula"></p>
+    </div>
+  </div></div>
+</div></section>
+
+<section id="dongs"><div class="wrap">
+  <h2>우리 동네에는 누가 돈을 쓰러 오나</h2>
+  <p class="lead">동네별로 바깥 손님 비율과 어디서 오는지 보여줍니다. 노란 동네는 바깥 손님이 2할을 넘는 곳입니다. 누르면 지도로 갑니다.</p>
+  <div class="dongs" id="dongCards"></div>
+</div></section>
+
+
+<script>
+const KEY='cb1_2jst_1_f20036d2498b9af9e4827f69';
+const fmt=n=>Math.round(n).toLocaleString('ko-KR');
+const R=DATA.regions, M=DATA.months, N=DATA.nMonths, JC=DATA.center; // [lat,lng]
+const NEAR=['영월군','단양군','정선군','태백시','평창군','횡성군'];
+const near4=R.filter(r=>['영월군','단양군','정선군','태백시'].includes(r.name)).reduce((s,r)=>s+r.in,0);
+heroBig.innerHTML=fmt(near4)+'<small>억 원</small>'; heroIn.textContent=fmt(DATA.totals.in)+'억'; heroOut.textContent=fmt(DATA.totals.out)+'억'; heroNet.textContent='+'+fmt(DATA.totals.in-DATA.totals.out)+'억';
+
+// 랜드마크 (좌표: 매출 CSV 점포 좌표·시청 중심)
+const LANDMARKS=[['제천역',128.2061,37.1366],['제천시청',128.1910,37.1326],['중앙시장',128.2113,37.1366],['의림지',128.2112,37.1770],['세명대학교',128.1963,37.1787],['이마트 제천점',128.2229,37.1232],['씨케이마트(장락)',128.2261,37.1527],['롯데마트',128.2008,37.1401],['명지병원',128.2342,37.1635],['서울병원',128.2061,37.1387],['포레스트 리솜',128.0461,37.1590],['청풍리조트',128.1792,37.0198],['킹즈락CC',128.1784,37.1384]];
+const USE_COLOR=['match',['get','g'],'주거','#FFD9E4','상가','#FFE9A3','업무','#CFE0FF','숙박','#FFD4C2','공공','#C9F0E4','산업','#E3DCFF','#E8E8EC'];
+
+const map=new maplibregl.Map({container:'map',center:[128.25,37.17],zoom:8.4,pitch:0,maxPitch:70,attributionControl:{compact:true},
+  style:{version:8,glyphs:'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
+    sources:{carto:{type:'raster',tiles:['https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png?key='+KEY,'https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png?key='+KEY,'https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png?key='+KEY],tileSize:256,attribution:'&copy; OpenStreetMap &copy; CARTO'}},
+    layers:[{id:'bg',type:'background',paint:{'background-color':'#F2F3F5'}},{id:'carto',type:'raster',source:'carto'}]}});
+map.addControl(new maplibregl.NavigationControl({visualizePitch:true}),'top-left');
+map.scrollZoom.disable(); map.on('click',()=>map.scrollZoom.enable());
+
+let dir='in', mi=0, sel=null;
+function val(r){ if(dir==='out') return r.out; if(mi===0) return r.in; return (r.inM[M[mi-1]]||0); }
+function curve(a,b){const mx=(a[0]+b[0])/2+(b[1]-a[1])*0.18, my=(a[1]+b[1])/2-(b[0]-a[0])*0.18; const pts=[];
+  for(let t=0;t<=1.0001;t+=0.04){pts.push([(1-t)*(1-t)*a[0]+2*(1-t)*t*mx+t*t*b[0],(1-t)*(1-t)*a[1]+2*(1-t)*t*my+t*t*b[1]]);} return pts;}
+function flowGeo(){
+  const vals=R.map(val); const mx=Math.max(...vals,1); const lines=[], pts=[];
+  R.forEach((r,i)=>{const v=vals[i]; if(v<=0) return; const from=dir==='in'?[r.lng,r.lat]:[JC[1],JC[0]], to=dir==='in'?[JC[1],JC[0]]:[r.lng,r.lat];
+    lines.push({type:'Feature',properties:{w:1+9*Math.sqrt(v/mx)},geometry:{type:'LineString',coordinates:curve(from,to)}});
+    const cv=curve(from,to); pts.push({type:'Feature',properties:{name:r.name,v:v,r:8+26*Math.sqrt(v/mx),mid:cv[Math.round(cv.length*0.55)]},geometry:{type:'Point',coordinates:[r.lng,r.lat]}});});
+  return {lines:{type:'FeatureCollection',features:lines},pts:{type:'FeatureCollection',features:pts}};
+}
+function dongGeo(){ DATA.dongs.features.forEach(f=>{const d=DATA.dongIn[f.properties.name]; f.properties.op=(!d||!d.tot)?.08:Math.min(.8,.12+(d.ext/d.tot)*2.2);}); return DATA.dongs; }
+map.on('load',()=>{
+  const g=flowGeo(); const col=dir==='in'?'#FFD02F':'#4262FF';
+  map.addSource('dongs',{type:'geojson',data:dongGeo()});
+  map.addLayer({id:'dong-fill',type:'fill',source:'dongs',paint:{'fill-color':'#FFD02F','fill-opacity':['interpolate',['linear'],['zoom'],11,['get','op'],13.5,['*',['get','op'],0.12]]}});
+  map.addLayer({id:'dong-line',type:'line',source:'dongs',paint:{'line-color':'#050038','line-width':1.2}});
+  map.addSource('dongc',{type:'geojson',data:{type:'FeatureCollection',features:DATA.dongs.features.map(f=>{const r=f.geometry.coordinates[0];const c=r.reduce((a,p)=>[a[0]+p[0],a[1]+p[1]],[0,0]).map(v=>v/r.length);return {type:'Feature',properties:{name:f.properties.name},geometry:{type:'Point',coordinates:c}};})}});
+  if(typeof BUILDINGS_C!=='undefined'){
+    const C=BUILDINGS_C, S=1e5; const feats=C.b.map(([gi,h,flat])=>{const ring=[]; let x=0,y=0; for(let i=0;i<flat.length;i+=2){x+=flat[i];y+=flat[i+1];ring.push([C.o[0]+x/S,C.o[1]+y/S]);} ring.push(ring[0]); return {type:'Feature',properties:{g:C.g[gi],h:h},geometry:{type:'Polygon',coordinates:[ring]}};});
+    map.addSource('bld',{type:'geojson',data:{type:'FeatureCollection',features:feats}});
+    map.addLayer({id:'bld-3d',type:'fill-extrusion',source:'bld',minzoom:12.5,paint:{'fill-extrusion-color':USE_COLOR,'fill-extrusion-height':['get','h'],'fill-extrusion-base':0,'fill-extrusion-opacity':.82}});
+  }
+  map.addSource('flow',{type:'geojson',data:g.lines}); map.addSource('pts',{type:'geojson',data:g.pts});
+  map.addLayer({id:'flow',type:'line',source:'flow',layout:{'line-cap':'round'},paint:{'line-color':col,'line-width':['get','w'],'line-opacity':.85}});
+  map.addLayer({id:'pts',type:'circle',source:'pts',paint:{'circle-radius':['get','r'],'circle-color':col,'circle-stroke-color':'#fff','circle-stroke-width':2}});
+  syncRegionLabels(g.pts);
+  map.addSource('jc',{type:'geojson',data:{type:'Feature',geometry:{type:'Point',coordinates:[JC[1],JC[0]]},properties:{}}});
+  map.addLayer({id:'jc',type:'circle',source:'jc',paint:{'circle-radius':14,'circle-color':'#050038','circle-stroke-color':'#fff','circle-stroke-width':3}});
+  const jcEl=document.createElement('div'); jcEl.className='lm lm-jc'; jcEl.textContent='제천시'; new maplibregl.Marker({element:jcEl,anchor:'left',offset:[18,0]}).setLngLat([JC[1],JC[0]]).addTo(map);
+  DATA.dongs.features.forEach(f=>{const r=f.geometry.coordinates[0];const c=r.reduce((a,p)=>[a[0]+p[0],a[1]+p[1]],[0,0]).map(v=>v/r.length);const el=document.createElement('div');el.className='lm lm-dong';el.textContent=f.properties.name;new maplibregl.Marker({element:el,anchor:'center'}).setLngLat(c).addTo(map);});
+  // 랜드마크 라벨 (HTML 마커 → Pretendard 적용)
+  LANDMARKS.forEach(([n,lng,lat])=>{const el=document.createElement('div'); el.className='lm'; el.textContent=n; new maplibregl.Marker({element:el,anchor:'bottom'}).setLngLat([lng,lat]).addTo(map);});
+  map.on('click','pts',e=>select(e.features[0].properties.name));
+  map.on('click','dong-fill',e=>{ if(map.queryRenderedFeatures(e.point,{layers:['pts']}).length) return; showDong(e.features[0].properties.name); });
+  map.on('mouseenter','pts',()=>map.getCanvas().style.cursor='pointer'); map.on('mouseleave','pts',()=>map.getCanvas().style.cursor='');
+  map.on('zoom',()=>{const z=map.getZoom(); document.querySelectorAll('.lm:not(.lm-jc):not(.lm-dong):not(.lm-reg)').forEach(el=>el.style.display=z>=11.5?'block':'none'); document.querySelectorAll('.lm-dong').forEach(el=>el.style.display=(z>=10.3&&z<14)?'block':'none'); document.querySelectorAll('.lm-reg,.lm-amt').forEach(el=>el.style.display=z<11.5?'block':'none');}); map.fire('zoom');
+  rank();
+});
+const regMarkers={};
+function syncRegionLabels(pts){ const seen=new Set(); const colCls=dir==='in'?'amt-in':'amt-out';
+  pts.features.forEach(f=>{const n=f.properties.name; seen.add(n); let m=regMarkers[n];
+    if(!m){const el=document.createElement('div'); el.className='lm lm-reg'; el.textContent=n; const am=document.createElement('div'); am.className='lm lm-amt';
+      m=regMarkers[n]={node:new maplibregl.Marker({element:el,anchor:'center'}).setLngLat(f.geometry.coordinates).addTo(map),amt:new maplibregl.Marker({element:am,anchor:'center'}).setLngLat(f.properties.mid).addTo(map)};}
+    m.amt.setLngLat(f.properties.mid); m.amt.getElement().textContent=fmt(f.properties.v)+'억'; m.amt.getElement().classList.remove('amt-in','amt-out'); m.amt.getElement().classList.add(colCls); m.node.getElement().style.visibility=m.amt.getElement().style.visibility='visible';});
+  Object.keys(regMarkers).forEach(n=>{ if(!seen.has(n)){ regMarkers[n].node.getElement().style.visibility='hidden'; regMarkers[n].amt.getElement().style.visibility='hidden'; } }); }
+function redraw(){ if(!map.getSource('flow')) return; const g=flowGeo(); const col=dir==='in'?'#FFD02F':'#4262FF'; map.getSource('flow').setData(g.lines); map.getSource('pts').setData(g.pts); map.setPaintProperty('flow','line-color',col); map.setPaintProperty('pts','circle-color',col); syncRegionLabels(g.pts); rank(); }
+function rank(){
+  const list=R.map(r=>({n:r.name,v:val(r)})).filter(x=>x.v>0).sort((a,b)=>b.v-a.v).slice(0,8); const mx=list[0]?list[0].v:1;
+  sideTitle.textContent=dir==='in'?'바깥에서 온 돈, 많은 순':'제천시민이 바깥에 쓴 돈, 많은 순';
+  rankList.innerHTML=list.map(x=>`<li data-n="${x.n}" class="${sel===x.n?'on':''}"><span style="display:flex;align-items:center;flex:1"><i class="bar" style="width:${Math.max(8,120*x.v/mx)}px;background:${dir==='in'?'#FFD02F':'#4262FF'}"></i>${x.n}</span><b>${fmt(x.v)}억</b></li>`).join('');
+  rankList.querySelectorAll('li').forEach(li=>li.onclick=()=>select(li.dataset.n));
+}
+function select(n){ sel=n; if(window.setRS&&typeof RS!=='undefined'&&RS[n]) setRS(n); const r=R.find(x=>x.name===n); if(!r) return; map.flyTo({center:[(r.lng+JC[1])/2,(r.lat+JC[0])/2],zoom:9,pitch:0,duration:700});
+  const kinds=r.outKind.map(k=>`<li><span>${k[0]}</span><b>${k[1]}억</b></li>`).join(''); const net=r.in-r.out;
+  detail.innerHTML=`<h3>${n}</h3><div class="num">${fmt(r.in)}억</div><div class="muted">${n} 주민이 제천에서 쓴 돈 (19개월)</div>
+    <div class="num" style="font-size:32px;margin-top:14px;color:#4262FF">${fmt(r.out)}억</div><div class="muted">제천시민이 ${n}에서 쓴 돈</div>
+    <div style="margin-top:14px;font-size:20px;font-weight:500">제천에 남는 돈 <span style="color:${net>=0?'#0F5C4A':'#8A2E14'}">${net>=0?'+':''}${fmt(net)}억</span></div>
+    ${kinds?`<div class="muted" style="margin-top:14px">제천시민이 ${n}에서 쓰는 곳</div><ul class="rank" style="font-size:15px">${kinds}</ul>`:''}`; rank(); }
+function showDong(n){ const d=DATA.dongIn[n]; if(!d) return; const p=d.tot?Math.round(d.ext/d.tot*100):0;
+  detail.innerHTML=`<h3>${n}</h3><div class="num">${p}%</div><div class="muted">이 동네 매출 중 바깥 손님 몫 (바깥 ${fmt(d.ext)}억 / 전체 ${fmt(d.tot)}억)</div><div class="muted" style="margin-top:14px">어디서 오나</div><ul class="rank" style="font-size:15px">${d.top.map(t=>`<li><span>${t[0]}</span><b>${t[1]}억</b></li>`).join('')}</ul>`; }
+function bbox(f){let x0=180,y0=90,x1=-180,y1=-90; f.geometry.coordinates[0].forEach(([x,y])=>{x0=Math.min(x0,x);y0=Math.min(y0,y);x1=Math.max(x1,x);y1=Math.max(y1,y);}); return [[x0,y0],[x1,y1]];}
+document.querySelectorAll('.toggle button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.toggle button').forEach(x=>x.classList.remove('on'));b.classList.add('on');dir=b.dataset.dir;mRange.disabled=dir==='out';redraw();});
+mRange.max=N; mRange.oninput=()=>{mi=+mRange.value;mLabel.textContent=mi===0?'전체 기간':M[mi-1].slice(0,4)+'년 '+(+M[mi-1].slice(4))+'월';redraw();};
+document.querySelectorAll('[data-city]').forEach(a=>a.onclick=e=>{e.preventDefault(); document.getElementById('map-sec').scrollIntoView({behavior:'smooth'}); setTimeout(()=>zoomCity.click(),650);});
+zoomCity.onclick=()=>map.flyTo({center:[128.212,37.142],zoom:14.2,pitch:55,bearing:-15,duration:1400});
+const fmtW=v=>v>=1e4?(v/1e4).toFixed(1)+'억':Math.round(v).toLocaleString('ko-KR')+'만';
+const ymLabel=ym=>ym.slice(0,4)+'년 '+(+ym.slice(4))+'월';
+
+// ---- 시내 TOP5: 분류 탭 + 표 + 지도 라벨 + 자동재생
+(function(){
+  if(typeof TOPS==='undefined') return;
+  const P=document.createElement('div'); P.id='topsPanel';
+  P.innerHTML=`<h4>제천 시내 매출 TOP 5</h4><div class="tp-cats"></div><div class="tp-time"><button id="tpPlay" aria-label="자동 재생">▶</button><input type="range" id="tpRange" min="0" max="${TOPS.months.length-1}" value="${TOPS.months.length-1}"><b id="tpLabel"></b></div><table class="tp-tab"><tbody id="tpBody"></tbody></table>`;
+  map.getContainer().appendChild(P);
+  let cat='음식', mi=TOPS.months.length-1, timer=null, mks=[];
+  P.querySelector('.tp-cats').innerHTML=TOPS.cats.map(([k,l])=>`<button data-k="${k}" class="${k===cat?'on':''}">${l}</button>`).join('');
+  P.querySelectorAll('.tp-cats button').forEach(b=>b.onclick=()=>{cat=b.dataset.k;P.querySelectorAll('.tp-cats button').forEach(x=>x.classList.toggle('on',x===b));render();});
+  const show=()=>map.getZoom()>=12.5;
+  function render(){
+    const ym=TOPS.months[mi], rows=(TOPS.t[ym]||{})[cat]||[];
+    tpLabel.textContent=ymLabel(ym); tpRange.value=mi;
+    tpBody.innerHTML=rows.length?rows.map((r,i)=>`<tr><td class="rk">${i+1}</td><td class="nm">${r[0]}<span class="sub">${r[4]}</span></td><td class="v">${fmtW(r[3])}</td></tr>`).join(''):'<tr><td>이달 자료가 없습니다</td></tr>';
+    mks.forEach(m=>m.remove()); mks=[];
+    if(!show()) return;
+    rows.forEach((r,i)=>{const el=document.createElement('div'); el.className='lm lm-top'+(i===0?' r1':''); el.innerHTML=`<i>${i+1}</i>${r[0]} · ${fmtW(r[3])}`; mks.push(new maplibregl.Marker({element:el,anchor:'bottom',offset:[0,-4]}).setLngLat([r[1],r[2]]).addTo(map));});
+  }
+  tpRange.oninput=()=>{mi=+tpRange.value;render();};
+  tpPlay.onclick=()=>{ if(timer){clearInterval(timer);timer=null;tpPlay.textContent='▶';return;} if(mi>=TOPS.months.length-1) mi=0; tpPlay.textContent='❚❚'; timer=setInterval(()=>{mi=(mi+1)%TOPS.months.length; render(); if(mi===TOPS.months.length-1){clearInterval(timer);timer=null;tpPlay.textContent='▶';}},800); };
+  let was=null; map.on('zoomend',()=>{const s=show(); P.classList.toggle('show',s); if(s!==was){was=s; render();}}); map.fire('zoomend');
+})();
+
+// ---- 이웃 주민 업종별 제천 소비 표
+(function(){
+  if(typeof RS==='undefined') return;
+  const regs=Object.keys(RS); let reg='영월군', mi=0;
+  rsTabs.innerHTML=regs.map(r=>`<button data-r="${r}" class="${r===reg?'on':''}">${r}</button>`).join('');
+  rsTabs.querySelectorAll('button').forEach(b=>b.onclick=()=>setRS(b.dataset.r));
+  const M=RS[reg].months; rsRange.max=M.length;
+  function spark(series){const w=140,h=28,mx=Math.max(...series,1); const pts=series.map((v,i)=>`${(i/(series.length-1)*w).toFixed(1)},${(h-v/mx*h).toFixed(1)}`).join(' '); return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline points="${pts}" fill="none" stroke="#050038" stroke-width="1.6" stroke-linejoin="round"/>${mi?`<circle cx="${((mi-1)/(series.length-1)*w).toFixed(1)}" cy="${(h-series[mi-1]/mx*h).toFixed(1)}" r="3" fill="#FFD02F" stroke="#050038"/>`:''}</svg>`;}
+  function render(){
+    const D=RS[reg], ms=D.months, ym=mi?ms[mi-1]:null;
+    rsLabel.textContent=ym?ymLabel(ym):'전체 기간 (19개월)';
+    const rows=D.rows.map(([big,name,s,hf])=>({big,name,hf,series:ms.map(m=>s[m]||0),v:ym?(s[ym]||0):Object.values(s).reduce((a,b)=>a+b,0)})).filter(r=>r.v>0).sort((a,b)=>(a.hf-b.hf)||(b.v-a.v));
+    const tot=rows.filter(r=>!r.hf).reduce((a,r)=>a+r.v,0), mx=Math.max(...rows.filter(r=>!r.hf).map(r=>r.v),1);
+    let k=0;
+    rsBody.innerHTML=rows.map(r=>{ if(!r.hf) k++; return `<tr class="${r.hf?'hf':''}"><td>${r.hf?'':k}</td><td>${r.name}<br><span class="cat">${r.big}</span></td><td class="r"><span class="bar" style="width:${r.hf?0:Math.max(4,60*r.v/mx)}px"></span>${fmtW(r.v)}</td><td class="r">${r.hf?'-':(r.v/tot*100).toFixed(1)+'%'}</td><td>${spark(r.series)}</td></tr>`;}).join('');
+    const top=rows.find(r=>!r.hf);
+    rsSum.innerHTML=`<h3>${reg} 주민</h3><div class="num">${fmtW(tot)}</div><div class="muted" style="color:#4b4300">${ym?ymLabel(ym)+'에':'19개월 동안'} 제천에서 쓴 돈 (미분류 제외)</div>${top?`<div style="margin-top:18px;font-size:18px;font-weight:500">가장 많이 쓴 곳<br><b style="font-size:24px">${top.name}</b> ${(top.v/tot*100).toFixed(0)}%</div>`:''}`;
+  }
+  window.setRS=r=>{reg=r; rsTabs.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.r===r)); render();};
+  rsRange.oninput=()=>{mi=+rsRange.value; render();};
+  render();
+})();
+map.addControl(new maplibregl.FullscreenControl(),'top-left');
+fullBtn.onclick=()=>{const el=document.getElementById('map'); if(document.fullscreenElement) document.exitFullscreen(); else (el.requestFullscreen||el.webkitRequestFullscreen).call(el);};
+document.addEventListener('fullscreenchange',()=>{setTimeout(()=>map.resize(),60); fullBtn.textContent=document.fullscreenElement?'전체 화면 닫기':'지도 전체 화면';});
+
+const on=new Set(['영월군','단양군','정선군']);
+const cand=R.filter(r=>NEAR.includes(r.name)||['원주시','충주시'].includes(r.name)).sort((a,b)=>b.in-a.in);
+chips.innerHTML=cand.map(r=>`<span class="chip ${on.has(r.name)?'on':''}" data-n="${r.name}">${r.name} ${fmt(r.in/N*12)}억/년</span>`).join('');
+chips.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{const n=c.dataset.n; on.has(n)?on.delete(n):on.add(n); c.classList.toggle('on'); calc();});
+['rJoin','rCash','rLift','rShare'].forEach(id=>document.getElementById(id).oninput=calc);
+function calc(){
+  const join=+rJoin.value/100, cash=+rCash.value/100, lift=+rLift.value/100, share=+rShare.value/100;
+  vJoin.textContent=Math.round(join*100)+'%'; vCash.textContent=Math.round(cash*100)+'%'; vLift.textContent=Math.round(lift*100)+'%'; vShare.textContent=Math.round(share*100)+'%';
+  let add=0, base=0, cost=0, members=0, rows=[];
+  cand.forEach(r=>{ if(!on.has(r.name)) return; const pop=DATA.pop[r.name]||50000; const yr=r.in/N*12; const per=yr/pop; const mem=pop*join; const memBase=mem*per; const inc=memBase*lift;
+    add+=inc; base+=yr; members+=mem; cost+=(memBase+inc)*cash*(1-share); rows.push({n:r.name,yr,inc}); });
+  oAdd.innerHTML=fmt(add)+'<small>억</small>'; oCost.innerHTML=fmt(cost)+'<small>억</small>'; oRoi.innerHTML=(cost>0?(add/cost).toFixed(1):'0')+'<small>억</small>';
+  const mx=Math.max(...rows.map(r=>r.yr+r.inc),1);
+  bars.innerHTML=rows.map(r=>`<div class="b"><span>${r.n}</span><div class="t"><i style="width:${(r.yr+r.inc)/mx*100}%" class="add"></i><i style="width:${r.yr/mx*100}%"></i></div><span>${fmt(r.yr)} → <b>${fmt(r.yr+r.inc)}</b></span></div>`).join('');
+  formula.textContent=rows.length?`가입자 약 ${fmt(members)}명. 지금 1년 유입 ${fmt(base)}억이 발급 후 ${fmt(base+add)}억. 캐시백 총액 ${fmt(cost/(1-share))}억 중 제천시 ${fmt(cost)}억, 충북도 ${fmt(cost/(1-share)*share)}억.`:'대상 시군을 하나 이상 고르세요.';
+}
+calc();
+
+const dc=Object.entries(DATA.dongIn).sort((a,b)=>b[1].tot-a[1].tot);
+dongCards.innerHTML=dc.map(([n,d])=>{const p=d.tot?Math.round(d.ext/d.tot*100):0; return `<div class="dong ${p>=20?'hot':''}" data-n="${n}"><h4>${n}</h4><div class="p">${p}%</div><div class="f">바깥 손님 비율. 주로 ${d.top.slice(0,2).map(t=>t[0]).join(', ')}에서</div></div>`}).join('');
+// ---- 스크롤 인터랙션: 등장·색 입히기·지도 확대·다크 전환·카운트업
+(function(){
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // 등장 대상 태깅
+  document.querySelectorAll('section>.wrap>h2,section>.wrap>.lead,.ctrl,.map-panel,.sim,.stat-card,.hero .grid>div:first-child').forEach(el=>el.classList.add('rv'));
+  document.querySelectorAll('.res').forEach((el,i)=>el.classList.add('rv','rv-d'+Math.min(4,i+1)));
+  document.querySelectorAll('.dong').forEach((el,i)=>el.classList.add('rv','rv-d'+Math.min(4,(i%4)+1)));
+  if(reduce) document.documentElement.classList.add('rm');
+  const io=new IntersectionObserver(es=>es.forEach(e=>{ if(!e.isIntersecting) return; const el=e.target; el.classList.add('in');
+    if(el.matches('.res,.dong,.stat-card')) setTimeout(()=>el.classList.add('paint'),420+ (parseInt((el.className.match(/rv-d(\d)/)||[0,0])[1])*90));
+    io.unobserve(el); }),{threshold:.25,rootMargin:'0px 0px -8% 0px'});
+  document.querySelectorAll('.rv').forEach(el=>io.observe(el));
+  // 지도 확대(스크롤 타임라인 미지원 폴백)
+  const mapEl=document.getElementById('map'); const steps=Array.from({length:21},(_,i)=>i/20);
+  const mio=new IntersectionObserver(es=>es.forEach(e=>{const p=Math.min(1,e.intersectionRatio/0.75); mapEl.style.setProperty('--mp',p.toFixed(2)); mapEl.style.setProperty('--ms',(0.84+0.16*p).toFixed(3));}),{threshold:steps});
+  mio.observe(mapEl);
+  // 시뮬레이터 다크 전환: 섹션이 화면 중앙 띠에 걸리면 어두워짐
+  const sio=new IntersectionObserver(es=>es.forEach(e=>document.getElementById('sim').classList.toggle('dark',e.isIntersecting)),{threshold:0,rootMargin:'-35% 0px -35% 0px'});
+  sio.observe(document.getElementById('sim'));
+  // 히어로 숫자 카운트업
+  const big=document.getElementById('heroBig'); const target=near4; let t0=null;
+  function step(ts){ if(!t0) t0=ts; const p=Math.min(1,(ts-t0)/1400); const ease=1-Math.pow(1-p,3); big.innerHTML=fmt(target*ease)+'<small>억 원</small>'; if(p<1) requestAnimationFrame(step); }
+  requestAnimationFrame(step);
+})();
+document.querySelectorAll('.dong').forEach(el=>el.onclick=()=>{showDong(el.dataset.n);document.getElementById('map-sec').scrollIntoView({behavior:'smooth'});const f=DATA.dongs.features.find(x=>x.properties.name===el.dataset.n);if(f)map.fitBounds(bbox(f),{padding:60,pitch:45,duration:900});});
+</script>
+<style>.lm{font-family:"Pretendard Variable",Pretendard,"Noto Sans KR",sans-serif;font-size:13px;font-weight:600;color:#050038;background:rgba(255,255,255,.92);border:1px solid #D2D2D6;border-radius:9999px;padding:4px 10px;box-shadow:rgba(5,0,56,.12) 0 2px 8px;white-space:nowrap;pointer-events:none}
+.lm-reg{background:transparent;border:0;box-shadow:none;font-size:13px;text-shadow:0 0 3px #fff,0 0 6px #fff}
+.lm-amt{font-size:13px;padding:0;border:0;background:transparent;box-shadow:none;text-shadow:0 0 3px #fff,0 0 6px #fff,0 0 8px #fff}.lm-amt.amt-in{color:#050038}.lm-amt.amt-out{color:#1F3BCC}
+.lm-jc{font-size:15px;font-weight:700}.lm-dong{background:transparent;border:0;box-shadow:none;text-shadow:0 0 3px #fff,0 0 6px #fff}</style>
+</body>
+</html>
