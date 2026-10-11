@@ -242,6 +242,7 @@ footer h5{color:#fff;font-size:17px;margin:0 0 8px;font-weight:500}
 .res,.dong,.stat-card{background-color:#fff;transition:background-color 700ms var(--ease),color 500ms var(--ease),transform 160ms var(--ease)}
 .res.paint.res-yellow,.stat-card.paint{background-color:var(--yellow)}
 .res.paint.res-teal{background-color:var(--teal-light)}.res.paint.res-coral{background-color:var(--coral-light)}.res.paint.res-rose{background-color:var(--rose-light)}
+.res.paint.res-rose,.res.paint.res-yellow{color:var(--ink)}
 .dong.hot.paint{background-color:var(--yellow-light)}
 .res:not(.paint){color:var(--ink)}
 #sim{transition:background-color 900ms var(--ease),color 900ms var(--ease)}
@@ -276,6 +277,7 @@ html.rm .rv{transform:none;transition-duration:220ms}html.rm #map{transition-dur
   @keyframes toDim{from{color:#5C5C66}to{color:rgba(255,255,255,.65)}}
   #sim .field label{animation:toLight linear both;animation-timeline:view();animation-range:entry 0% entry 40%}
   @keyframes toLight{from{color:var(--ink)}to{color:#fff}}
+  #sim .res-rose,#sim .res-yellow{color:var(--ink)}
 }
 </style>
 </head>
