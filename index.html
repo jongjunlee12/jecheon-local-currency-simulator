@@ -355,9 +355,17 @@ function showDong(n){ const d=DATA.dongIn[n]; if(!d) return; const p=d.tot?Math.
 function bbox(f){let x0=180,y0=90,x1=-180,y1=-90; f.geometry.coordinates[0].forEach(([x,y])=>{x0=Math.min(x0,x);y0=Math.min(y0,y);x1=Math.max(x1,x);y1=Math.max(y1,y);}); return [[x0,y0],[x1,y1]];}
 document.querySelectorAll('.toggle button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.toggle button').forEach(x=>x.classList.remove('on'));b.classList.add('on');dir=b.dataset.dir;mRange.disabled=dir==='out';redraw();});
 mRange.max=N; mRange.oninput=()=>{mi=+mRange.value;mLabel.textContent=mi===0?'전체 기간':M[mi-1].slice(0,4)+'년 '+(+M[mi-1].slice(4))+'월';redraw();};
-document.querySelectorAll('[data-city]').forEach(a=>a.onclick=e=>{e.preventDefault(); document.getElementById('map-sec').scrollIntoView({behavior:'smooth'}); setTimeout(()=>zoomCity.click(),650);});
-zoomCity.onclick=()=>map.flyTo({center:[128.212,37.142],zoom:14.2,pitch:55,bearing:-15,duration:1400});
+// 매출순위 보기: 지도 전체화면 + 시내 3D 진입, 축소하면 원래 화면으로
+let cityMode=false;
+function goCity(e){ if(e) e.preventDefault(); const el=document.getElementById('map'); const fs=el.requestFullscreen||el.webkitRequestFullscreen;
+  cityMode=true; if(!document.fullscreenElement&&fs){ try{ const r=fs.call(el); if(r&&r.catch) r.catch(()=>{}); }catch(_){} } else document.getElementById('map-sec').scrollIntoView({behavior:'smooth'});
+  setTimeout(()=>{ map.resize(); map.flyTo({center:[128.212,37.142],zoom:14.2,pitch:55,bearing:-15,duration:1400}); },150); }
+document.querySelectorAll('[data-city]').forEach(a=>a.onclick=goCity);
+zoomCity.onclick=goCity;
+map.on('zoomend',()=>{ if(cityMode&&document.fullscreenElement&&!map.isMoving()&&map.getZoom()<11.5){ cityMode=false; document.exitFullscreen(); } });
+document.addEventListener('fullscreenchange',()=>{ if(!document.fullscreenElement){ cityMode=false; setTimeout(()=>{ map.resize(); document.getElementById('map-sec').scrollIntoView({block:'start'}); },80);} });
 const fmtW=v=>v>=1e4?(v/1e4).toFixed(1)+'억':Math.round(v).toLocaleString('ko-KR')+'만';
+const fmtA=v=>{ if(v>=9500) return Math.round(v/1e4)+'억 내외'; if(v>=950) return Math.round(v/1e3)+'천만원 내외'; if(v>=95) return Math.round(v/100)+'백만원 내외'; return '1백만원 미만'; };
 const ymLabel=ym=>ym.slice(0,4)+'년 '+(+ym.slice(4))+'월';
 
 // ---- 시내 TOP5: 분류 탭 + 표 + 지도 라벨 + 자동재생
@@ -373,10 +381,10 @@ const ymLabel=ym=>ym.slice(0,4)+'년 '+(+ym.slice(4))+'월';
   function render(){
     const ym=TOPS.months[mi], rows=(TOPS.t[ym]||{})[cat]||[];
     tpLabel.textContent=ymLabel(ym); tpRange.value=mi;
-    tpBody.innerHTML=rows.length?rows.map((r,i)=>`<tr><td class="rk">${i+1}</td><td class="nm">${r[0]}<span class="sub">${r[4]}</span></td><td class="v">${fmtW(r[3])}</td></tr>`).join(''):'<tr><td>이달 자료가 없습니다</td></tr>';
+    tpBody.innerHTML=rows.length?rows.map((r,i)=>`<tr><td class="rk">${i+1}</td><td class="nm">${r[0]}<span class="sub">${r[4]}</span></td><td class="v">${fmtA(r[3])}</td></tr>`).join(''):'<tr><td>이달 자료가 없습니다</td></tr>';
     mks.forEach(m=>m.remove()); mks=[];
     if(!show()) return;
-    rows.forEach((r,i)=>{const el=document.createElement('div'); el.className='lm lm-top'+(i===0?' r1':''); el.innerHTML=`<i>${i+1}</i>${r[0]} · ${fmtW(r[3])}`; mks.push(new maplibregl.Marker({element:el,anchor:'bottom',offset:[0,-4]}).setLngLat([r[1],r[2]]).addTo(map));});
+    rows.forEach((r,i)=>{const el=document.createElement('div'); el.className='lm lm-top'+(i===0?' r1':''); el.innerHTML=`<i>${i+1}</i>${r[0]} · ${fmtA(r[3])}`; mks.push(new maplibregl.Marker({element:el,anchor:'bottom',offset:[0,-4]}).setLngLat([r[1],r[2]]).addTo(map));});
   }
   tpRange.oninput=()=>{mi=+tpRange.value;render();};
   tpPlay.onclick=()=>{ if(timer){clearInterval(timer);timer=null;tpPlay.textContent='▶';return;} if(mi>=TOPS.months.length-1) mi=0; tpPlay.textContent='❚❚'; timer=setInterval(()=>{mi=(mi+1)%TOPS.months.length; render(); if(mi===TOPS.months.length-1){clearInterval(timer);timer=null;tpPlay.textContent='▶';}},800); };
