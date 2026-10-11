@@ -626,7 +626,7 @@ function wkStart(){ if(!WK.c) return;
   if(WK.done){ WK.d=0; WK.next=0; WK.pause=0; WK.done=false; wkMarkList(-1); }
   WK.on=true; WK.last=0; WK.el.classList.add('walking'); wkGo.textContent='❚❚ 잠시 멈춤';
   const [p]=wkPos(WK.d); map.easeTo({center:p,zoom:16.6,pitch:55,padding:WK_PAD,duration:900});
-  setTimeout(()=>{ if(WK.on) WK.raf=requestAnimationFrame(wkTick); },950); }
+  setTimeout(()=>{ if(WK.on){ declutter(WK.mk); WK.raf=requestAnimationFrame(wkTick); } },950); }
 function wkFinish(){ WK.on=false; WK.done=true; WK.el.classList.remove('walking'); wkGo.textContent='↻ 다시 걷기';
   wkSay(`산책 끝! <b>${wkKm(WK.c.dist)}</b>, 걸어서 약 ${WK.c.min}분 거리예요.<br>오늘 들른 가게 모두 제천 지역화폐로 결제할 수 있어요.`); }
 function wkClear(keepPanel){ WK.on=false; cancelAnimationFrame(WK.raf); WK.mk.forEach(m=>m.remove()); WK.mk=[]; if(WK.av) WK.av.remove(); WK.av=null; WK.c=null;
@@ -716,8 +716,9 @@ function declutter(list){ const items=list.filter(m=>m.getElement()._nat); if(!i
     const inside=r=>r[0]>=0&&r[1]>=0&&r[2]<=W&&r[3]<=H;
     const best=cands.find(c=>{const r=rect(c); return free(r)&&inside(r);})||cands.find(c=>free(rect(c)))||nat;
     placed.push(rect(best));
+    const key=best.map(Math.round).join(','); if(el._key===key) return; el._key=key;
     m.setOffset(best); ldrDraw(el,best,Math.hypot(best[0]-nat[0],best[1]-nat[1])>4,w,h); }); }
-map.on('moveend',()=>{ if(NET.on) declutter(NET.markers); else if(RAD.on) declutter(RAD.mk); else if(WK.c&&!document.body.classList.contains('wk-hidden')) declutter(WK.mk); });
+map.on('moveend',()=>{ if(NET.on) declutter(NET.markers); else if(RAD.on) declutter(RAD.mk); else if(WK.c&&!WK.on&&!document.body.classList.contains('wk-hidden')) declutter(WK.mk); }); // 걷는 중에는 배율이 같으므로 라벨 자리를 고정(깜빡임 방지)
 
 // ---- 이웃 주민 업종별 제천 소비 표
 (function(){
