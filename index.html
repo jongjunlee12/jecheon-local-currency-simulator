@@ -298,7 +298,7 @@ html.rm .rv{transform:none;transition-duration:220ms}html.rm #map{transition-dur
   </div>
   <div class="map-panel">
     <div><div id="map"></div>
-      <div class="legend"><span><i style="background:#FFD02F"></i>들어오는 돈</span><span><i style="background:#4262FF"></i>나가는 돈</span><span><i style="background:#050038"></i>제천시</span>
+      <div class="legend"><span><i style="background:#1FA392;height:3px;border-radius:2px"></i>들어오는 돈</span><span><i style="background:#E2668F;height:3px;border-radius:2px"></i>나가는 돈</span><span><i style="background:#050038"></i>제천시</span>
         <span style="margin-left:6px;color:#9A9AA3">건물 용도</span><span><i class="sq" style="background:#FFD9E4"></i>주거</span><span><i class="sq" style="background:#FFE9A3"></i>상가</span><span><i class="sq" style="background:#CFE0FF"></i>업무</span><span><i class="sq" style="background:#FFD4C2"></i>숙박·위락</span><span><i class="sq" style="background:#C9F0E4"></i>공공·의료·교육</span><span><i class="sq" style="background:#E3DCFF"></i>산업</span></div>
     </div>
     <div class="side">
@@ -396,8 +396,8 @@ map.on('load',()=>{
     map.addLayer({id:'bld-3d',type:'fill-extrusion',source:'bld',minzoom:12.5,paint:{'fill-extrusion-color':USE_COLOR,'fill-extrusion-height':['get','h'],'fill-extrusion-base':0,'fill-extrusion-opacity':.82}});
   }
   map.addSource('flow',{type:'geojson',data:g.lines}); map.addSource('pts',{type:'geojson',data:g.pts});
-  map.addLayer({id:'flow',type:'line',source:'flow',layout:{'line-cap':'round'},paint:{'line-color':dir==='in'?'#D49B00':'#7A8CFF','line-width':['get','w'],'line-opacity':.7,'line-blur':.4}});
-  map.addLayer({id:'pts',type:'circle',source:'pts',paint:{'circle-radius':['get','r'],'circle-color':col,'circle-opacity':.92,'circle-stroke-color':'#fff','circle-stroke-width':2}});
+  map.addLayer({id:'flow',type:'line',source:'flow',layout:{'line-cap':'round'},paint:{'line-color':dir==='in'?'#1FA392':'#E2668F','line-width':['get','w'],'line-opacity':.7,'line-blur':.4}});
+  map.addLayer({id:'pts',type:'circle',source:'pts',paint:{'circle-radius':['get','r'],'circle-color':col,'circle-opacity':0,'circle-stroke-width':0}});
   syncRegionLabels(g.pts);
   map.addSource('jc',{type:'geojson',data:{type:'Feature',geometry:{type:'Point',coordinates:[JC[1],JC[0]]},properties:{}}});
   map.addLayer({id:'jc',type:'circle',source:'jc',paint:{'circle-radius':14,'circle-color':'#050038','circle-stroke-color':'#fff','circle-stroke-width':3}});
@@ -418,7 +418,7 @@ function syncRegionLabels(pts){ const seen=new Set(); const colCls=dir==='in'?'a
       m=regMarkers[n]={node:new maplibregl.Marker({element:el,anchor:'center'}).setLngLat(f.geometry.coordinates).addTo(map),amt:new maplibregl.Marker({element:am,anchor:'center'}).setLngLat(f.properties.mid).addTo(map)};}
     m.amt.setLngLat(f.properties.mid); m.amt.getElement().textContent=fmt(f.properties.v)+'억'; m.amt.getElement().classList.remove('amt-in','amt-out'); m.amt.getElement().classList.add(colCls); m.node.getElement().style.visibility='visible'; m.amt.getElement().style.visibility=f.properties.v>=0.5?'visible':'hidden';});
   Object.keys(regMarkers).forEach(n=>{ if(!seen.has(n)){ regMarkers[n].node.getElement().style.visibility='hidden'; regMarkers[n].amt.getElement().style.visibility='hidden'; } }); }
-function redraw(){ if(!map.getSource('flow')) return; const g=flowGeo(); const col=dir==='in'?'#FFD02F':'#4262FF'; map.getSource('flow').setData(g.lines); map.getSource('pts').setData(g.pts); map.setPaintProperty('flow','line-color',dir==='in'?'#D49B00':'#7A8CFF'); map.setPaintProperty('pts','circle-color',col); syncRegionLabels(g.pts); rank(); }
+function redraw(){ if(!map.getSource('flow')) return; const g=flowGeo(); const col=dir==='in'?'#FFD02F':'#4262FF'; map.getSource('flow').setData(g.lines); map.getSource('pts').setData(g.pts); map.setPaintProperty('flow','line-color',dir==='in'?'#1FA392':'#E2668F'); map.setPaintProperty('pts','circle-color',col); syncRegionLabels(g.pts); rank(); }
 function rank(){
   const list=R.map(r=>({n:r.name,v:val(r)})).filter(x=>x.v>0).sort((a,b)=>b.v-a.v).slice(0,8); const mx=list[0]?list[0].v:1;
   sideTitle.textContent=dir==='in'?'바깥에서 온 돈, 많은 순':'제천시민이 바깥에 쓴 돈, 많은 순';
@@ -670,8 +670,8 @@ dongCards.innerHTML=dc.map(([n,d])=>{const p=d.tot?Math.round(d.ext/d.tot*100):0
 document.querySelectorAll('.dong').forEach(el=>el.onclick=()=>{showDong(el.dataset.n);document.getElementById('map-sec').scrollIntoView({behavior:'smooth'});const f=DATA.dongs.features.find(x=>x.properties.name===el.dataset.n);if(f)map.fitBounds(bbox(f),{padding:60,pitch:45,duration:900});});
 </script>
 <style>.lm{font-family:"Pretendard Variable",Pretendard,"Noto Sans KR",sans-serif;font-size:13px;font-weight:600;color:#050038;background:rgba(255,255,255,.92);border:1px solid #D2D2D6;border-radius:9999px;padding:4px 10px;box-shadow:rgba(5,0,56,.12) 0 2px 8px;white-space:nowrap;pointer-events:none}
-.lm-reg{background:rgba(255,255,255,.72);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);border:1px solid rgba(5,0,56,.10);box-shadow:rgba(5,0,56,.08) 0 2px 6px;font-size:12.5px;padding:3px 9px;text-shadow:none}
-.lm-amt{font-size:13px;padding:0;border:0;background:transparent;box-shadow:none;text-shadow:0 0 3px #fff,0 0 6px #fff,0 0 8px #fff}.lm-amt.amt-in{color:#8A6400}.lm-amt.amt-out{color:#2F45C9}
+.lm-reg{background:rgba(255,255,255,.8);font-weight:700;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);border:1px solid rgba(5,0,56,.10);box-shadow:rgba(5,0,56,.08) 0 2px 6px;font-size:12.5px;padding:3px 9px;text-shadow:none}
+.lm-amt{font-size:13px;padding:0;border:0;background:transparent;box-shadow:none;text-shadow:0 0 3px #fff,0 0 6px #fff,0 0 8px #fff}.lm-amt.amt-in{color:#0E7468}.lm-amt.amt-out{color:#B13A63}
 .lm-jc{font-size:15px;font-weight:700;background:rgba(5,0,56,.82);color:#fff;border:0;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}.lm-dong{background:transparent;border:0;box-shadow:none;text-shadow:0 0 3px #fff,0 0 6px #fff}</style>
 <script>
 // 정책 근거 숫자: 영월·단양·정선·원주 주민의 연도별 제천 소비, 소비 집중도, 시뮬레이터 기본 효과
