@@ -44,6 +44,23 @@
 .rs-tab .r{text-align:right;white-space:nowrap}.rs-tab .bar{height:8px;border-radius:4px;background:var(--yellow);display:inline-block;vertical-align:middle;margin-right:8px}
 .rs-tab tr.hf td{color:var(--stone)}.rs-tab .cat{font-size:13px;color:var(--steel)}
 .rs-note{font-size:14px;color:var(--steel);margin-top:10px}
+/* 이웃 주민 표: 순위 배지·스크롤 반응 */
+.rs-tab .rkb{font-style:normal;display:inline-flex;width:30px;height:30px;border-radius:50%;align-items:center;justify-content:center;background:var(--surface);font-weight:700;font-size:14px}
+.rs-tab tr.top1 .rkb{background:#FFD02F}.rs-tab tr.top2 .rkb{background:#E3E5EC}.rs-tab tr.top3 .rkb{background:#F3C9A4}
+.rs-tab .bar{transform-origin:left center}
+.play-btn{flex:0 0 auto;width:40px;height:40px;border-radius:50%;border:0;background:var(--yellow);font-size:14px;cursor:pointer;transition:transform 160ms var(--ease)}
+.play-btn:active{transform:scale(.95)}
+@supports (animation-timeline: view()){
+  .rs-tab tr.rk{animation:rsIn linear both,rsSpot linear both;animation-timeline:view(),view();animation-range:entry 0% entry 100%,cover 38% cover 62%}
+  .rs-tab tr.rk .bar{animation:rsBar linear both;animation-timeline:view();animation-range:entry 20% cover 45%}
+  .rs-tab tr.rk .rkb{animation:rsPop linear both;animation-timeline:view();animation-range:entry 40% entry 100%}
+  @keyframes rsIn{from{opacity:0;transform:translateX(-28px)}to{opacity:1;transform:none}}
+  @keyframes rsSpot{0%,100%{background-color:transparent}50%{background-color:var(--yellow-light)}}
+  @keyframes rsBar{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+  @keyframes rsPop{0%{transform:scale(.6)}70%{transform:scale(1.15)}100%{transform:scale(1)}}
+  html.rm .rs-tab tr.rk{animation-name:rvInRm,rsSpot}
+}
+
 @media (max-width:1023px){.rs-grid{grid-template-columns:1fr}#topsPanel{width:260px}}
 /* 동반매장 네트워크 */
 body.net-on .lm-reg,body.net-on .lm-amt,body.net-on .lm-top,body.net-on .lm-jc,body.net-on .lm-dong,body.net-on #topsPanel{display:none!important}
@@ -123,6 +140,8 @@ body.rad-on #radInfo{display:block}
 .lm-radc{font-size:12.5px;display:flex;align-items:center;gap:5px;padding:3px 9px 3px 3px}
 .lm-radc i{font-style:normal;width:20px;height:20px;border-radius:50%;background:#E8743B;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:10.5px}
 @media (max-width:1023px){#radInfo{width:calc(100% - 120px);font-size:14px}}
+.ldr{position:absolute;left:50%;top:50%;width:1px;height:1px;overflow:visible;pointer-events:none}
+.ldr line{stroke:#050038;stroke-width:1.3;stroke-opacity:.6}.ldr circle{fill:#050038;stroke:#fff;stroke-width:1.5}
 .wk-av .wb em{font-style:normal;display:inline-flex;width:20px;height:20px;border-radius:50%;color:#fff;font-size:11px;align-items:center;justify-content:center;margin-right:6px;vertical-align:1px}
 @media (max-width:1023px){#walkPanel{width:250px}#netInfo{width:calc(100% - 120px);font-size:14px}}
 .eyebrow{display:inline-block;font-size:14px;font-weight:600;background:var(--yellow-light);color:#6B5A00;border-radius:9999px;padding:6px 14px;margin-bottom:18px}
@@ -211,7 +230,9 @@ input[type=range]:disabled{opacity:.35}
 .chip.on{background:var(--primary);color:#fff;border-color:var(--primary)}
 .results{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
 .res{border-radius:var(--r-xxxl);padding:28px;min-height:190px;display:flex;flex-direction:column;justify-content:space-between}
-.res .lab{font-size:16px;font-weight:500;opacity:.85}
+.res .lab{font-size:15px;font-weight:500;opacity:.85;letter-spacing:-.2px}
+.res:not(.wide){padding-left:20px;padding-right:20px}
+@media (min-width:1200px){.res .lab{white-space:nowrap}}
 .res .n{font-size:56px;letter-spacing:-1.5px;font-weight:500;line-height:1.05}
 .res .n small{font-size:24px;letter-spacing:0}
 .res-yellow{background:var(--yellow)}.res-teal{background:var(--teal-light);color:var(--moss)}.res-coral{background:var(--coral-light);color:var(--coral-dark)}.res-rose{background:var(--rose-light)}
@@ -341,7 +362,7 @@ html.rm .rv{transform:none;transition-duration:220ms}html.rm #map{transition-dur
   </div>
   <div class="rs-grid">
     <div class="card rs-sum" id="rsSum"></div>
-    <div><table class="rs-tab"><thead><tr><th style="width:64px;white-space:nowrap">순위</th><th>업종</th><th class="r">제천에서 쓴 돈</th><th class="r" style="width:90px">비중</th><th style="width:150px">달별 흐름</th></tr></thead><tbody id="rsBody"></tbody></table>
+    <div><table class="rs-tab"><thead><tr><th style="width:64px;white-space:nowrap">순위</th><th>업종</th><th class="r">제천에서 쓴 돈</th><th class="r" style="width:90px">비중</th><th style="width:150px">달별 흐름</th></tr></thead><tbody id="rsBody"></tbody></table><div class="rs-note" id="rsMore"></div>
       <p class="rs-note">2026년 1월부터 일부 결제가 '미분류'로 잡혀 회색으로 따로 표시했습니다. 2025년 11월은 결측이 많아 뺐습니다.</p></div>
   </div>
 </div></section>
@@ -432,7 +453,7 @@ map.on('load',()=>{
   map.on('click','pts',e=>select(e.features[0].properties.name));
   map.on('click','dong-fill',e=>{ if(map.queryRenderedFeatures(e.point,{layers:['pts']}).length) return; showDong(e.features[0].properties.name); });
   map.on('mouseenter','pts',()=>map.getCanvas().style.cursor='pointer'); map.on('mouseleave','pts',()=>map.getCanvas().style.cursor='');
-  map.on('zoom',()=>{const z=map.getZoom(); document.querySelectorAll('.lm:not(.lm-jc):not(.lm-dong):not(.lm-reg)').forEach(el=>el.style.display=z>=11.5?'block':'none'); document.querySelectorAll('.lm-dong').forEach(el=>el.style.display=(z>=10.3&&z<14)?'block':'none'); document.querySelectorAll('.lm-reg,.lm-amt').forEach(el=>el.style.display=z<11.5?'block':'none');}); map.fire('zoom');
+  map.on('zoom',()=>{const z=map.getZoom(); document.querySelectorAll('.lm:not(.lm-jc):not(.lm-dong):not(.lm-reg):not(.lm-net):not(.lm-src):not(.lm-wk):not(.lm-radc)').forEach(el=>el.style.display=z>=11.5?'block':'none'); document.querySelectorAll('.lm-dong').forEach(el=>el.style.display=(z>=10.3&&z<14)?'block':'none'); document.querySelectorAll('.lm-reg,.lm-amt').forEach(el=>el.style.display=z<11.5?'block':'none');}); map.fire('zoom');
   rank();
 });
 const regMarkers={};
@@ -515,8 +536,8 @@ function openNet(id){ if(typeof COMP==='undefined'||!COMP.l[id]) return; const [
   map.getSource('netp').setData({type:'FeatureCollection',features:lines.concat(pts)});
   ['net','netp'].forEach(l=>map.setLayoutProperty(l,'visibility','visible'));
   NET.markers.forEach(m=>m.remove()); NET.markers=[];
-  const se=document.createElement('div'); se.className='lm lm-src'; se.textContent=nm; NET.markers.push(new maplibregl.Marker({element:se,anchor:'bottom',offset:[0,-16]}).setLngLat([x,y]).addTo(map));
-  L.forEach((l,i)=>{const el=document.createElement('div'); el.className='lm lm-net'; el.innerHTML=`<i>${i+1}</i>${l[0]} <small>${l[3].toLocaleString('ko-KR')}회</small>`; NET.markers.push(new maplibregl.Marker({element:el,anchor:'top',offset:[0,10]}).setLngLat([l[1],l[2]]).addTo(map));});
+  const se=document.createElement('div'); se.className='lm lm-src'; se.textContent=nm; se._nat=(w,h)=>[0,-16-h/2]; NET.markers.push(new maplibregl.Marker({element:se,anchor:'center'}).setLngLat([x,y]).addTo(map));
+  L.forEach((l,i)=>{const el=document.createElement('div'); el.className='lm lm-net'; el.innerHTML=`<i>${i+1}</i>${l[0]} <small>${l[3].toLocaleString('ko-KR')}회</small>`; el._nat=(w,h)=>[0,10+h/2]; NET.markers.push(new maplibregl.Marker({element:el,anchor:'center'}).setLngLat([l[1],l[2]]).addTo(map));}); declutter(NET.markers);
   let x0=x,y0=y,x1=x,y1=y; L.forEach(l=>{x0=Math.min(x0,l[1]);x1=Math.max(x1,l[1]);y0=Math.min(y0,l[2]);y1=Math.max(y1,l[2]);});
   map.fitBounds([[x0,y0],[x1,y1]],{padding:{top:180,bottom:80,left:90,right:90},maxZoom:17.5,pitch:40,duration:900});
   detail.innerHTML=`<h3>${nm}</h3><div class="muted">이 가게 손님이 같은 날 함께 들른 곳 (2024년 4월부터, 동반 횟수 합)</div><ul class="rank" style="font-size:15px;margin-top:8px">${L.map((l,i)=>`<li><span>${i+1}. ${l[0]}</span><b>${l[3].toLocaleString('ko-KR')}회</b></li>`).join('')}</ul>`; }
@@ -581,7 +602,7 @@ function wkSelect(id){ wkClear(true); const c=WALK.courses.find(x=>x.id===id); i
   map.getSource('walk').setData({type:'Feature',properties:{},geometry:{type:'LineString',coordinates:c.path}});
   map.setPaintProperty('walk','line-color',c.color); ['walk-case','walk'].forEach(l=>map.setLayoutProperty(l,'visibility','visible'));
   c.stops.forEach((s,i)=>{ const el=document.createElement('div'); el.className='lm lm-wk'; el.innerHTML=`<i style="background:${WK_COLOR[s[1]]}">${i+1}</i>${s[0]}`; el.onclick=ev=>{ev.stopPropagation(); wkStopClick(i);};
-    WK.mk.push(new maplibregl.Marker({element:el,anchor:'left',offset:[-11,0]}).setLngLat([s[2],s[3]]).addTo(map)); });
+    el._nat=(w,h)=>[w/2-11,0]; WK.mk.push(new maplibregl.Marker({element:el,anchor:'center'}).setLngLat([s[2],s[3]]).addTo(map)); }); declutter(WK.mk);
   const av=document.createElement('div'); av.className='wk-av';
   av.innerHTML=`<div class="wb"></div><div class="fig" style="--c:${c.color}"><span class="sh"></span><span class="ar a2"></span><span class="lg l2"></span><span class="lg l1"></span><span class="bd"></span><span class="ar a1"></span><span class="hd"></span><span class="hr"></span></div>`;
   WK.el=av; WK.av=new maplibregl.Marker({element:av,anchor:'bottom'}).setLngLat(c.path[0]).addTo(map);
@@ -648,11 +669,11 @@ function openRad(nm,x,y){ if(typeof POI==='undefined') return;
     .concat(inside.filter(p=>p[3]==='s').map(p=>({type:'Feature',properties:{n:p[0]},geometry:{type:'Point',coordinates:[p[1],p[2]]}})))});
   ['rad-line','rad-s'].forEach(l=>map.setLayoutProperty(l,'visibility','visible'));
   inside.filter(p=>p[3]!=='s').forEach(p=>{ const el=document.createElement('div');
-    if(p[3]==='c'){ el.className='lm lm-radc'; el.innerHTML=`<i>${RAD_G.c[2]}</i>${p[0]}`; }
+    if(p[3]==='c'){ el.className='lm lm-radc'; el.innerHTML=`<i>${RAD_G.c[2]}</i>${p[0]}`; el._nat=(w,h)=>[w/2-11,0]; }
     else { el.className='rad-ic rad-'+p[3]; el.textContent=RAD_G[p[3]][2]; el.title=p[0]; }
-    RAD.mk.push(new maplibregl.Marker({element:el,anchor:p[3]==='c'?'left':'center',offset:p[3]==='c'?[-11,0]:[0,0]}).setLngLat([p[1],p[2]]).addTo(map)); });
+    RAD.mk.push(new maplibregl.Marker({element:el,anchor:'center'}).setLngLat([p[1],p[2]]).addTo(map)); });
   const se=document.createElement('div'); se.className='lm lm-src'; se.textContent=nm;
-  RAD.mk.push(new maplibregl.Marker({element:se,anchor:'bottom',offset:[0,-6]}).setLngLat([x,y]).addTo(map));
+  se._nat=(w,h)=>[0,-6-h/2]; RAD.mk.unshift(new maplibregl.Marker({element:se,anchor:'center'}).setLngLat([x,y]).addTo(map)); declutter(RAD.mk);
   radInfo.innerHTML=`<span class="q">반경 1km</span><b>${nm}</b>에서 걸어서 15분 안에 상가 <b>${n.s.toLocaleString('ko-KR')}</b>곳, 학원 <b>${n.a}</b>곳, 병원·약국 <b>${n.h}</b>곳, 문화시설 <b>${n.c}</b>곳이 있습니다. 문화시설을 찾은 사람이 주변 가게에서 지역화폐를 쓰도록 잇는 거점입니다.
     <div class="rad-lg">${Object.entries(RAD_G).map(([g,v])=>`<span><i class="rad-ic rad-${g}">${v[2]}</i>${v[0]} ${n[g].toLocaleString('ko-KR')}</span>`).join('')}</div>`;
   radCloseBtn.textContent=WK.c?'닫고 산책 코스로':'닫기';
@@ -674,6 +695,30 @@ map.on('load',()=>{
   map.on('mouseleave','rad-s',()=>{ map.getCanvas().style.cursor=''; pop.remove(); });
 });
 
+
+// ---- 라벨 겹침 피하기: 겹치면 빈자리로 비켜 놓고, 원래 위치까지 지시선을 그음
+const LDR_DIRS=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]];
+function ldrDraw(el,off,show,w,h){ let g=el._ldr;
+  if(!g){ g=document.createElementNS('http://www.w3.org/2000/svg','svg'); g.setAttribute('class','ldr'); el.appendChild(g); el._ldr=g; }
+  if(!show){ g.innerHTML=''; return; }
+  const ax=-off[0], ay=-off[1], u=Math.min(ax?(w/2)/Math.abs(ax):1e9, ay?(h/2)/Math.abs(ay):1e9);
+  g.innerHTML=`<line x1="${ax}" y1="${ay}" x2="${ax*u}" y2="${ay*u}"/><circle cx="${ax}" cy="${ay}" r="3.2"/>`; }
+function declutter(list){ const items=list.filter(m=>m.getElement()._nat); if(!items.length) return;
+  const C=map.getContainer(), W=C.clientWidth, H=C.clientHeight, cr=C.getBoundingClientRect();
+  // 패널·설명 상자·말풍선은 라벨이 피해 가야 할 자리
+  const placed=[...C.querySelectorAll('#walkPanel.show,#topsPanel.show,#netInfo,#radInfo,#netClose,#radCloseBtn,.wk-av.talk .wb')]
+    .filter(e=>e.offsetWidth&&getComputedStyle(e).display!=='none').map(e=>{const r=e.getBoundingClientRect(); return [r.left-cr.left,r.top-cr.top,r.right-cr.left,r.bottom-cr.top];});
+  items.forEach(m=>{ const el=m.getElement(); const w=el.offsetWidth, h=el.offsetHeight; if(!w) return;
+    const p=map.project(m.getLngLat()), nat=el._nat(w,h), cands=[nat];
+    [1,1.7,2.5,3.4].forEach(k=>LDR_DIRS.forEach(([sx,sy])=>cands.push([sx*(w/2+16)*k*(sy?0.75:1), sy*(h/2+16)*k])));
+    const rect=c=>[p.x+c[0]-w/2-3,p.y+c[1]-h/2-3,p.x+c[0]+w/2+3,p.y+c[1]+h/2+3];
+    const free=r=>!placed.some(q=>r[0]<q[2]&&r[2]>q[0]&&r[1]<q[3]&&r[3]>q[1]);
+    const inside=r=>r[0]>=0&&r[1]>=0&&r[2]<=W&&r[3]<=H;
+    const best=cands.find(c=>{const r=rect(c); return free(r)&&inside(r);})||cands.find(c=>free(rect(c)))||nat;
+    placed.push(rect(best));
+    m.setOffset(best); ldrDraw(el,best,Math.hypot(best[0]-nat[0],best[1]-nat[1])>4,w,h); }); }
+map.on('moveend',()=>{ if(NET.on) declutter(NET.markers); else if(RAD.on) declutter(RAD.mk); else if(WK.c&&!document.body.classList.contains('wk-hidden')) declutter(WK.mk); });
+
 // ---- 이웃 주민 업종별 제천 소비 표
 (function(){
   if(typeof RS==='undefined') return;
@@ -685,17 +730,26 @@ map.on('load',()=>{
   function render(){
     const D=RS[reg], ms=D.months, ym=mi?ms[mi-1]:null;
     rsLabel.textContent=ym?ymLabel(ym):'전체 기간 (19개월)';
-    const rows=D.rows.map(([big,name,s,hf])=>({big,name,hf,series:ms.map(m=>s[m]||0),v:ym?(s[ym]||0):Object.values(s).reduce((a,b)=>a+b,0)})).filter(r=>r.v>0).sort((a,b)=>(a.hf-b.hf)||(b.v-a.v));
-    const tot=rows.filter(r=>!r.hf).reduce((a,r)=>a+r.v,0), mx=Math.max(...rows.filter(r=>!r.hf).map(r=>r.v),1);
+    const all=D.rows.map(([big,name,s,hf])=>({big,name,hf,series:ms.map(m=>s[m]||0),v:ym?(s[ym]||0):Object.values(s).reduce((a,b)=>a+b,0)})).filter(r=>r.v>0&&!r.hf).sort((a,b)=>b.v-a.v), rows=all.slice(0,20);
+    const tot=all.reduce((a,r)=>a+r.v,0), mx=Math.max(...rows.map(r=>r.v),1);
     let k=0;
-    rsBody.innerHTML=rows.map(r=>{ if(!r.hf) k++; return `<tr class="${r.hf?'hf':''}"><td>${r.hf?'':k}</td><td>${r.name}<br><span class="cat">${r.big}</span></td><td class="r"><span class="bar" style="width:${r.hf?0:Math.max(4,60*r.v/mx)}px"></span>${fmtW(r.v)}</td><td class="r">${r.hf?'-':(r.v/tot*100).toFixed(1)+'%'}</td><td>${spark(r.series)}</td></tr>`;}).join('');
+    rsBody.innerHTML=rows.map(r=>{ if(!r.hf) k++; return `<tr class="rk${k<=3?' top'+k:''}"><td><i class="rkb">${k}</i></td><td>${r.name}<br><span class="cat">${r.big}</span></td><td class="r"><span class="bar" style="width:${r.hf?0:Math.max(4,60*r.v/mx)}px"></span>${fmtW(r.v)}</td><td class="r">${r.hf?'-':(r.v/tot*100).toFixed(1)+'%'}</td><td>${spark(r.series)}</td></tr>`;}).join('');
     const top=rows.find(r=>!r.hf);
-    rsSum.innerHTML=`<h3>${reg} 주민</h3><div class="num">${fmtW(tot)}</div><div class="muted" style="color:#4b4300">${ym?ymLabel(ym)+'에':'19개월 동안'} 제천에서 쓴 돈 (미분류 제외)</div>${top?`<div style="margin-top:18px;font-size:18px;font-weight:500">가장 많이 쓴 곳<br><b style="font-size:24px">${top.name}</b> ${(top.v/tot*100).toFixed(0)}%</div>`:''}`;
+    rsMore.textContent=all.length>20?`1~20위만 보여드립니다 (전체 ${all.length}개 업종 중)`:''; rsSum.innerHTML=`<h3>${reg} 주민</h3><div class="num">${fmtW(tot)}</div><div class="muted" style="color:#4b4300">${ym?ymLabel(ym)+'에':'19개월 동안'} 제천에서 쓴 돈 (미분류 제외)</div>${top?`<div style="margin-top:18px;font-size:18px;font-weight:500">가장 많이 쓴 곳<br><b style="font-size:24px">${top.name}</b> ${(top.v/tot*100).toFixed(0)}%</div>`:''}`;
   }
   window.setRS=r=>{reg=r; rsTabs.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.r===r)); render();};
   rsRange.oninput=()=>{mi=+rsRange.value; render();};
   render();
 })();
+
+// ---- 시계열 자동 재생: 슬라이더 앞에 ▶ 버튼을 붙이고 한 달씩 넘김
+function addPlay(range,first){ const b=document.createElement('button'); b.className='play-btn'; b.type='button'; b.textContent='▶'; b.setAttribute('aria-label','자동 재생');
+  range.parentNode.insertBefore(b,range); let t=null;
+  const stop=()=>{ clearInterval(t); t=null; b.textContent='▶'; };
+  b.onclick=()=>{ if(t) return stop(); if(range.disabled) return; if(+range.value>=+range.max) range.value=first;
+    b.textContent='❚❚'; t=setInterval(()=>{ if(range.disabled||+range.value>=+range.max) return stop(); range.value=+range.value+1; range.dispatchEvent(new Event('input')); },900); };
+  range.addEventListener('pointerdown',stop); }
+addPlay(mRange,1); addPlay(rsRange,1);
 map.addControl(new maplibregl.FullscreenControl(),'top-left');
 fullBtn.onclick=()=>{const el=document.getElementById('map'); if(document.fullscreenElement) document.exitFullscreen(); else (el.requestFullscreen||el.webkitRequestFullscreen).call(el);};
 document.addEventListener('fullscreenchange',()=>{setTimeout(()=>map.resize(),60); fullBtn.textContent=document.fullscreenElement?'전체 화면 닫기':'지도 전체 화면';});
